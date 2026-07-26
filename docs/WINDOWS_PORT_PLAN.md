@@ -98,7 +98,7 @@ global hotkey → mic capture → 16 kHz mono PCM → TranscriptionProvider
 | Parakeet-class models | `speech_runtime` → ONNX where possible (later) | planned |
 | Keychain | Windows Credential Manager / DPAPI | done |
 | SMAppService launch-at-login | Startup folder / Run key / Task Scheduler | done |
-| NWListener local API | Dart `HttpServer` / shelf | planned |
+| NWListener local API | Dart `HttpServer` / shelf | done |
 | AppUpdater | Windows installer + portable build (later) | planned |
 | MediaRemote | SMTC / WinRT media (later) | planned |
 

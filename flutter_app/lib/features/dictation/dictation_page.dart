@@ -3,18 +3,23 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/routes/app_routes.dart';
+import '../../core/ai/openai_compatible_provider.dart';
 import '../../core/models/audio_models.dart';
+import '../../core/models/dictation_mode.dart';
 import '../../core/models/hotkey_models.dart';
 import '../../core/models/desktop_models.dart';
+import '../../core/models/transcript_models.dart';
 import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
+import '../../core/platform/win32_credentials_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
 import '../../core/platform/win32_tray_host.dart';
 import '../../core/services/history_manager.dart';
 import '../../core/services/hotkey_state_machine.dart';
+import '../../core/services/local_api_server.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_history_store.dart';
 import '../../core/storage/json_settings_store.dart';
@@ -36,6 +41,8 @@ class _DictationPageState extends State<DictationPage> {
   final _tray = Win32TrayHost();
   final _settings = SettingsManager(JsonSettingsStore());
   final _history = HistoryManager(JsonHistoryStore());
+  final _credentials = Win32CredentialsStore();
+  LocalApiServer? _localApi;
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -104,6 +111,19 @@ class _DictationPageState extends State<DictationPage> {
         await _speech.prepare(modelId: modelId);
       }
 
+      if (_settings.localApiEnabled) {
+        _localApi = LocalApiServer(
+          settings: _settings,
+          history: _history,
+          speechEngine: _speech.isNativeAvailable ? _speech : null,
+        );
+        try {
+          await _localApi!.start();
+        } catch (_) {
+          _localApi = null;
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _status = 'Ready — hold F8 to dictate';
@@ -113,6 +133,9 @@ class _DictationPageState extends State<DictationPage> {
           if (_speech.isNativeAvailable) 'whisper',
           if (_injector.isNativeAvailable) 'inject',
           'tray',
+          if (_localApi != null) 'api:${LocalApiServer.defaultPort}',
+          if (_settings.outputMode != DictationOutputMode.raw)
+            'mode:${_settings.outputMode.name}',
         ].join(' + ');
       });
     } catch (e) {
@@ -217,27 +240,45 @@ class _DictationPageState extends State<DictationPage> {
       );
       _pcm.clear();
 
-      var injectDetail = result.text.isEmpty
+      var text = result.text;
+      var injectDetail = text.isEmpty
           ? 'No speech detected'
           : 'Transcription complete';
-      if (result.text.isNotEmpty && _injector.isNativeAvailable) {
+
+      if (text.isNotEmpty &&
+          _settings.outputMode != DictationOutputMode.raw) {
         try {
-          await _injector.insertText(result.text);
+          setState(() {
+            _status = 'AI ${_settings.outputMode.name}…';
+          });
+          text = await _runAiMode(text);
+          injectDetail = 'AI ${_settings.outputMode.name} complete';
+        } catch (e) {
+          injectDetail = 'AI failed, using raw text: $e';
+          text = result.text;
+        }
+      }
+
+      if (text.isNotEmpty && _injector.isNativeAvailable) {
+        try {
+          await _injector.insertText(text);
           injectDetail = 'Inserted into focused app';
         } catch (e) {
           injectDetail = 'Transcribed; insert failed: $e';
         }
       }
 
-      if (result.text.isNotEmpty) {
+      if (text.isNotEmpty) {
         try {
-          await _history.addFromResult(result);
+          await _history.addFromResult(
+            TranscriptResult(text: text, rawText: result.text),
+          );
         } catch (_) {}
       }
 
       try {
-        if (result.text.isNotEmpty) {
-          await _overlay.setTranscript(result.text);
+        if (text.isNotEmpty) {
+          await _overlay.setTranscript(text);
         }
         await Future<void>.delayed(const Duration(milliseconds: 900));
         await _overlay.hide();
@@ -250,7 +291,7 @@ class _DictationPageState extends State<DictationPage> {
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _transcript = result.text;
+        _transcript = text;
         _status = 'Ready — hold F8 to dictate';
         _detail = injectDetail;
       });
@@ -271,11 +312,29 @@ class _DictationPageState extends State<DictationPage> {
     }
   }
 
+  Future<String> _runAiMode(String transcript) async {
+    final key = await _credentials.readSecret(Win32CredentialsStore.aiApiKey);
+    if (key == null || key.isEmpty) {
+      throw StateError('Configure an AI API key in Settings');
+    }
+    final base = (_settings.aiBaseUrl == null || _settings.aiBaseUrl!.isEmpty)
+        ? 'https://api.openai.com/v1'
+        : _settings.aiBaseUrl!;
+    final ai = OpenAiCompatibleProvider(baseUrl: base, apiKey: key);
+    return switch (_settings.outputMode) {
+      DictationOutputMode.rewrite => ai.rewrite(transcript: transcript),
+      DictationOutputMode.write => ai.write(transcript: transcript),
+      DictationOutputMode.enhance => ai.enhance(transcript: transcript),
+      DictationOutputMode.raw => transcript,
+    };
+  }
+
   @override
   void dispose() {
     for (final sub in _subs) {
       unawaited(sub.cancel());
     }
+    unawaited(_localApi?.stop() ?? Future<void>.value());
     unawaited(_capture.dispose());
     unawaited(_hotkeys.dispose());
     unawaited(_speech.dispose());

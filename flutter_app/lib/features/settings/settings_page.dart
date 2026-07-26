@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../app/routes/app_routes.dart';
 import '../../core/models/audio_models.dart';
+import '../../core/models/dictation_mode.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
 import '../../core/platform/win32_autostart.dart';
 import '../../core/platform/win32_credentials_store.dart';
+import '../../core/services/local_api_server.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
 
@@ -167,12 +169,32 @@ class _SettingsPageState extends State<SettingsPage> {
             title: Text('Hotkey'),
             subtitle: Text('Push-to-talk: hold F8 (WH_KEYBOARD_LL)'),
           ),
+          ListTile(
+            title: const Text('Output mode'),
+            subtitle: Text(_settings.outputMode.name),
+            trailing: DropdownButton<DictationOutputMode>(
+              value: _settings.outputMode,
+              onChanged: (mode) {
+                if (mode == null) return;
+                setState(() => _settings.outputMode = mode);
+              },
+              items: [
+                for (final mode in DictationOutputMode.values)
+                  DropdownMenuItem(
+                    value: mode,
+                    child: Text(mode.name),
+                  ),
+              ],
+            ),
+          ),
           SwitchListTile(
-            title: const Text('AI enhancement'),
-            subtitle: const Text('OpenAI-compatible post-process (optional)'),
-            value: _settings.aiEnhancementEnabled,
-            onChanged: (v) =>
-                setState(() => _settings.aiEnhancementEnabled = v),
+            title: const Text('Local API'),
+            subtitle: Text(
+              'Loopback http://127.0.0.1:${LocalApiServer.defaultPort} '
+              '(restart app after Save)',
+            ),
+            value: _settings.localApiEnabled,
+            onChanged: (v) => setState(() => _settings.localApiEnabled = v),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

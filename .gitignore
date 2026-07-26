@@ -207,6 +207,7 @@ docs/*
 !docs/PLUGIN_API.md
 !docs/BUILDING_WINDOWS.md
 !docs/CONTRIBUTING.md
+!docs/LOCAL_API.md
 !docs/MACOS_UI_AUTOMATION_BRANCH_PLAN.md
 
 

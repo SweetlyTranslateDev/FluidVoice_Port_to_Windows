@@ -141,4 +141,10 @@ class NoOpAIProvider implements AIProvider {
     String? systemPrompt,
   }) async =>
       transcript;
+
+  @override
+  Future<String> rewrite({required String transcript}) async => transcript;
+
+  @override
+  Future<String> write({required String transcript}) async => transcript;
 }

@@ -1,3 +1,4 @@
+import '../models/dictation_mode.dart';
 import '../models/hotkey_models.dart';
 import '../storage/settings_store.dart';
 
@@ -12,7 +13,9 @@ class SettingsManager {
   String? selectedModelId;
   String? selectedMicId;
   bool aiEnhancementEnabled = false;
+  DictationOutputMode outputMode = DictationOutputMode.raw;
   String? aiBaseUrl;
+  bool localApiEnabled = false;
 
   Future<void> load() async {
     final data = await _store.readAll();
@@ -24,6 +27,13 @@ class SettingsManager {
     selectedMicId = data['selectedMicId'];
     aiEnhancementEnabled = data['aiEnhancementEnabled'] == 'true';
     aiBaseUrl = data['aiBaseUrl'];
+    localApiEnabled = data['localApiEnabled'] == 'true';
+    outputMode = DictationOutputMode.values.firstWhere(
+      (m) => m.name == data['outputMode'],
+      orElse: () => aiEnhancementEnabled
+          ? DictationOutputMode.enhance
+          : DictationOutputMode.raw,
+    );
 
     final keyCode = int.tryParse(data['hotkeyKeyCode'] ?? '');
     if (keyCode != null) {
@@ -32,12 +42,15 @@ class SettingsManager {
   }
 
   Future<void> save() async {
+    aiEnhancementEnabled = outputMode != DictationOutputMode.raw;
     await _store.writeAll({
       'hotkeyMode': hotkeyMode.name,
       'selectedModelId': selectedModelId ?? '',
       'selectedMicId': selectedMicId ?? '',
       'aiEnhancementEnabled': aiEnhancementEnabled.toString(),
+      'outputMode': outputMode.name,
       'aiBaseUrl': aiBaseUrl ?? '',
+      'localApiEnabled': localApiEnabled.toString(),
       'hotkeyKeyCode': hotkeyShortcut?.keyCode.toString() ?? '',
       'hotkeyLabel': hotkeyShortcut?.label ?? '',
     });

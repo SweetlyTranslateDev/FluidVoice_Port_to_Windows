@@ -2,6 +2,9 @@
 library;
 
 export 'interfaces/ai_provider.dart';
+export 'ai/openai_compatible_provider.dart';
+export 'models/dictation_mode.dart';
+export 'services/local_api_server.dart';
 export 'interfaces/audio_capture.dart';
 export 'interfaces/credentials_store.dart';
 export 'interfaces/hotkey_source.dart';
