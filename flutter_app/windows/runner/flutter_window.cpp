@@ -6,6 +6,7 @@
 
 #include "flutter/generated_plugin_registrant.h"
 #include "overlay_plugin.h"
+#include "tray_plugin.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -33,7 +34,15 @@ bool FlutterWindow::OnCreate() {
           ->GetRegistrar<flutter::PluginRegistrarWindows>(
               flutter_controller_->engine()->GetRegistrarForPlugin(
                   "FluidVoiceOverlayPlugin")));
+  RegisterTrayPlugin(
+      flutter::PluginRegistrarManager::GetInstance()
+          ->GetRegistrar<flutter::PluginRegistrarWindows>(
+              flutter_controller_->engine()->GetRegistrarForPlugin(
+                  "FluidVoiceTrayPlugin")));
+  TrayPluginSetAppWindow(GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  // Close button hides to tray; Quit comes from the tray menu.
+  SetQuitOnClose(false);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -70,6 +79,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_CLOSE:
+      // Keep process alive in the tray unless quit was requested.
+      ShowWindow(hwnd, SW_HIDE);
+      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

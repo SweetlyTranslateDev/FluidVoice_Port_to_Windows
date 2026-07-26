@@ -8,6 +8,8 @@ project(runner LANGUAGES CXX)
 # Any new source files that you add to the application should be added here.
 set(FLUIDVOICE_OVERLAY_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/overlay_window/cpp")
+set(FLUIDVOICE_TRAY_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/tray_host/cpp")
 
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
@@ -19,6 +21,8 @@ add_executable(${BINARY_NAME} WIN32
   "runner.exe.manifest"
   "${FLUIDVOICE_OVERLAY_DIR}/overlay_window.cpp"
   "${FLUIDVOICE_OVERLAY_DIR}/overlay_plugin.cpp"
+  "${FLUIDVOICE_TRAY_DIR}/tray_icon.cpp"
+  "${FLUIDVOICE_TRAY_DIR}/tray_plugin.cpp"
 )
 
 # Apply the standard set of build settings. This can be removed for applications
@@ -38,10 +42,11 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app flutter_wrapper_plugin)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "shell32.lib")
 target_include_directories(${BINARY_NAME} PRIVATE
   "${CMAKE_SOURCE_DIR}"
   "${FLUIDVOICE_OVERLAY_DIR}"
+  "${FLUIDVOICE_TRAY_DIR}"
 )
 
 # Run the Flutter tool portions of the build. This must not be removed.

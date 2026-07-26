@@ -1,4 +1,4 @@
-/// Key/value settings persistence (AppData JSON in a later phase).
+/// Key/value settings persistence (see [JsonSettingsStore] for AppData JSON).
 abstract class SettingsStore {
   Future<Map<String, String>> readAll();
 

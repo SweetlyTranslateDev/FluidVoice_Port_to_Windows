@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import '../../app/routes/app_routes.dart';
 import '../../core/models/audio_models.dart';
 import '../../core/models/hotkey_models.dart';
+import '../../core/models/desktop_models.dart';
 import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
+import '../../core/platform/win32_tray_host.dart';
 import '../../core/services/hotkey_state_machine.dart';
+import '../../core/services/settings_manager.dart';
+import '../../core/storage/json_settings_store.dart';
 
 /// Dictation shell: F8 PTT → WASAPI → speech_runtime (whisper.cpp).
 class DictationPage extends StatefulWidget {
@@ -27,6 +31,8 @@ class _DictationPageState extends State<DictationPage> {
   final _speech = SpeechRuntimeEngine();
   final _injector = Win32TextInjector();
   final _overlay = Win32OverlayHost();
+  final _tray = Win32TrayHost();
+  final _settings = SettingsManager(JsonSettingsStore());
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -60,6 +66,12 @@ class _DictationPageState extends State<DictationPage> {
         return;
       }
 
+      await _settings.load();
+      if (_settings.selectedMicId != null &&
+          _settings.selectedMicId!.isNotEmpty) {
+        await _capture.setDevice(_settings.selectedMicId!);
+      }
+
       _subs.add(_hotkeys.events.listen(_machine.handle));
       _subs.add(_machine.actions.listen(_onAction));
       _subs.add(_capture.audioStream.listen((chunk) {
@@ -67,16 +79,25 @@ class _DictationPageState extends State<DictationPage> {
         if (!mounted) return;
         setState(() => _audioChunks += 1);
       }));
+      _subs.add(_tray.actions.listen(_onTrayAction));
 
-      await _hotkeys.setShortcut(kDefaultHotkeyShortcut);
+      try {
+        await _tray.start();
+      } catch (_) {}
+
+      await _hotkeys.setShortcut(
+        _settings.hotkeyShortcut ?? kDefaultHotkeyShortcut,
+      );
       await _hotkeys.start();
 
+      final modelId =
+          _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
       if (_speech.isNativeAvailable) {
         setState(() {
           _status = 'Downloading Whisper model…';
-          _detail = 'tiny.en (one-time)';
+          _detail = '$modelId (cached after first run)';
         });
-        await _speech.prepare(modelId: WhisperModelStore.defaultModelId);
+        await _speech.prepare(modelId: modelId);
       }
 
       if (!mounted) return;
@@ -87,6 +108,7 @@ class _DictationPageState extends State<DictationPage> {
           'hotkeys',
           if (_speech.isNativeAvailable) 'whisper',
           if (_injector.isNativeAvailable) 'inject',
+          'tray',
         ].join(' + ');
       });
     } catch (e) {
@@ -95,6 +117,21 @@ class _DictationPageState extends State<DictationPage> {
         _status = 'Startup failed';
         _detail = e.toString();
       });
+    }
+  }
+
+  Future<void> _onTrayAction(TrayAction action) async {
+    switch (action.id) {
+      case 'show':
+        await _tray.showApp();
+      case 'settings':
+        await _tray.showApp();
+        if (!mounted) return;
+        await Navigator.of(context).pushNamed(AppRoutes.settings);
+      case 'quit':
+        await _tray.quitApp();
+      default:
+        break;
     }
   }
 
@@ -110,6 +147,7 @@ class _DictationPageState extends State<DictationPage> {
           _transcript = '';
         });
         try {
+          await _tray.setStatus(AppTrayStatus.listening);
           await _overlay.setTranscript('');
           await _overlay.setClickThrough(true);
           await _overlay.show();
@@ -134,6 +172,7 @@ class _DictationPageState extends State<DictationPage> {
           _detail = '${_pcm.length} samples @ 16 kHz';
         });
         try {
+          await _tray.setStatus(AppTrayStatus.processing);
           await _overlay.setTranscript('Transcribing…');
         } catch (_) {}
         await _finishTranscription();
@@ -147,6 +186,7 @@ class _DictationPageState extends State<DictationPage> {
       if (!_speech.isNativeAvailable) {
         try {
           await _overlay.hide();
+          await _tray.setStatus(AppTrayStatus.idle);
         } catch (_) {}
         setState(() {
           _busy = false;
@@ -158,6 +198,7 @@ class _DictationPageState extends State<DictationPage> {
       if (_pcm.isEmpty) {
         try {
           await _overlay.hide();
+          await _tray.setStatus(AppTrayStatus.idle);
         } catch (_) {}
         setState(() {
           _busy = false;
@@ -192,6 +233,10 @@ class _DictationPageState extends State<DictationPage> {
         await _overlay.hide();
       } catch (_) {}
 
+      try {
+        await _tray.setStatus(AppTrayStatus.idle);
+      } catch (_) {}
+
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -202,6 +247,7 @@ class _DictationPageState extends State<DictationPage> {
     } catch (e) {
       try {
         await _overlay.hide();
+        await _tray.setStatus(AppTrayStatus.error);
       } catch (_) {}
       if (!mounted) return;
       setState(() {
@@ -209,6 +255,9 @@ class _DictationPageState extends State<DictationPage> {
         _status = 'Ready — hold F8 to dictate';
         _detail = 'Transcribe failed: $e';
       });
+      try {
+        await _tray.setStatus(AppTrayStatus.idle);
+      } catch (_) {}
     }
   }
 
@@ -220,6 +269,7 @@ class _DictationPageState extends State<DictationPage> {
     unawaited(_capture.dispose());
     unawaited(_hotkeys.dispose());
     unawaited(_speech.dispose());
+    unawaited(_tray.dispose());
     unawaited(_machine.dispose());
     super.dispose();
   }
