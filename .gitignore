@@ -200,7 +200,14 @@ RELEASE_NOTES_*
 **.dmg
 **.dmg.zip
 # Documentation backups (for future reference, not needed in repo)
-docs/
+# Ignore docs contents by default; allow tracked Windows port design docs.
+docs/*
+!docs/ARCHITECTURE.md
+!docs/WINDOWS_PORT_PLAN.md
+!docs/PLUGIN_API.md
+!docs/BUILDING_WINDOWS.md
+!docs/CONTRIBUTING.md
+!docs/MACOS_UI_AUTOMATION_BRANCH_PLAN.md
 
 
 .agent/
