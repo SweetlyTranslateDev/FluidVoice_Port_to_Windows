@@ -1,22 +1,22 @@
 # speech_runtime
 
-Unified speech recognition facade for FluidVoice Windows.
+Unified speech recognition facade. App code calls `SpeechEngine` / `fv_speech_*` — never a per-model plugin API.
 
-## App contract
+## Phase 1 backend
 
-```dart
-speechEngine.transcribe(audio);
+`whisper_cpp/` via [whisper.cpp](https://github.com/ggerganov/whisper.cpp) (CMake FetchContent, tag `v1.7.5`).
+
+Pipeline:
+
+1. Dart downloads/caches `ggml-tiny.en.bin` under `%AppData%\...\FluidVoice\models`
+2. `fv_speech_prepare(path)` loads the model
+3. `fv_speech_transcribe(float* mono16k, …)` runs `whisper_full` and returns UTF-8 text
+
+## Build
+
+Built as `fluidvoice_speech.dll` with the Flutter Windows runner (first configure fetches whisper.cpp).
+
+```powershell
+cd C:\dev\FluidVoice_Port_to_Windows\flutter_app
+flutter build windows --debug
 ```
-
-Not `whisperPlugin.transcribe(audio)`.
-
-## Backends (nested)
-
-| Backend | Path | Phase |
-|---------|------|-------|
-| whisper.cpp | `whisper_cpp/` | 1 |
-| ONNX / Parakeet-class | `onnx_runtime/` | 3 |
-| Vosk | `vosk/` | 3 |
-| Future | `future_models/` | later |
-
-Phase 0 ships `cpp/speech_runtime_stub.cpp` only.

@@ -3,12 +3,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/routes/app_routes.dart';
+import '../../core/models/audio_models.dart';
 import '../../core/models/hotkey_models.dart';
+import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
+import '../../core/platform/whisper_model_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/services/hotkey_state_machine.dart';
 
-/// Dictation status shell. Hotkey + mic capture wired; speech comes next.
+/// Dictation shell: F8 PTT → WASAPI → speech_runtime (whisper.cpp).
 class DictationPage extends StatefulWidget {
   const DictationPage({super.key});
 
@@ -19,12 +22,17 @@ class DictationPage extends StatefulWidget {
 class _DictationPageState extends State<DictationPage> {
   final _hotkeys = Win32HotkeySource();
   final _capture = WasapiAudioCapture();
+  final _speech = SpeechRuntimeEngine();
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
+  final List<double> _pcm = [];
+
   String _status = 'Starting…';
   String _detail = '';
+  String _transcript = '';
   bool _recording = false;
+  bool _busy = false;
   int _audioChunks = 0;
 
   @override
@@ -50,7 +58,8 @@ class _DictationPageState extends State<DictationPage> {
 
       _subs.add(_hotkeys.events.listen(_machine.handle));
       _subs.add(_machine.actions.listen(_onAction));
-      _subs.add(_capture.audioStream.listen((_) {
+      _subs.add(_capture.audioStream.listen((chunk) {
+        _pcm.addAll(chunk.samples);
         if (!mounted) return;
         setState(() => _audioChunks += 1);
       }));
@@ -58,17 +67,27 @@ class _DictationPageState extends State<DictationPage> {
       await _hotkeys.setShortcut(kDefaultHotkeyShortcut);
       await _hotkeys.start();
 
+      if (_speech.isNativeAvailable) {
+        setState(() {
+          _status = 'Downloading Whisper model…';
+          _detail = 'tiny.en (one-time)';
+        });
+        await _speech.prepare(modelId: WhisperModelStore.defaultModelId);
+      }
+
       if (!mounted) return;
       setState(() {
-        _status = 'Ready — hold F8 to capture';
-        _detail = _capture.isNativeAvailable
-            ? 'WASAPI + hotkeys loaded'
-            : 'Hotkeys OK; WASAPI DLL missing';
+        _status = 'Ready — hold F8 to dictate';
+        _detail = [
+          if (_capture.isNativeAvailable) 'WASAPI',
+          'hotkeys',
+          if (_speech.isNativeAvailable) 'whisper',
+        ].join(' + ');
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _status = 'Failed to start hotkeys';
+        _status = 'Startup failed';
         _detail = e.toString();
       });
     }
@@ -77,10 +96,13 @@ class _DictationPageState extends State<DictationPage> {
   Future<void> _onAction(HotkeyMachineAction action) async {
     switch (action) {
       case HotkeyMachineAction.startRecording:
+        if (_busy) return;
+        _pcm.clear();
         setState(() {
           _recording = true;
           _status = 'Recording (F8 held)';
           _audioChunks = 0;
+          _transcript = '';
         });
         if (_capture.isNativeAvailable) {
           try {
@@ -97,11 +119,55 @@ class _DictationPageState extends State<DictationPage> {
         if (!mounted) return;
         setState(() {
           _recording = false;
-          _status = 'Ready — hold F8 to capture';
-          _detail = 'Last take: $_audioChunks audio chunks @ 16 kHz';
+          _busy = true;
+          _status = 'Transcribing…';
+          _detail = '${_pcm.length} samples @ 16 kHz';
         });
+        await _finishTranscription();
       case HotkeyMachineAction.toggleRecording:
         break;
+    }
+  }
+
+  Future<void> _finishTranscription() async {
+    try {
+      if (!_speech.isNativeAvailable) {
+        setState(() {
+          _busy = false;
+          _status = 'Ready — hold F8 to dictate';
+          _detail = 'Speech DLL missing; captured $_audioChunks chunks';
+        });
+        return;
+      }
+      if (_pcm.isEmpty) {
+        setState(() {
+          _busy = false;
+          _status = 'Ready — hold F8 to dictate';
+          _detail = 'No audio captured';
+        });
+        return;
+      }
+
+      final result = await _speech.transcribe(
+        AudioBuffer(samples: List<double>.from(_pcm), sampleRate: 16000, channels: 1),
+      );
+      _pcm.clear();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _transcript = result.text;
+        _status = 'Ready — hold F8 to dictate';
+        _detail = result.text.isEmpty
+            ? 'No speech detected'
+            : 'Transcription complete';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _status = 'Ready — hold F8 to dictate';
+        _detail = 'Transcribe failed: $e';
+      });
     }
   }
 
@@ -112,6 +178,7 @@ class _DictationPageState extends State<DictationPage> {
     }
     unawaited(_capture.dispose());
     unawaited(_hotkeys.dispose());
+    unawaited(_speech.dispose());
     unawaited(_machine.dispose());
     super.dispose();
   }
@@ -156,14 +223,33 @@ class _DictationPageState extends State<DictationPage> {
             Text(_detail),
             const SizedBox(height: 24),
             Text(
-              _recording ? 'Listening…' : 'Idle',
+              _recording
+                  ? 'Listening…'
+                  : (_busy ? 'Working…' : 'Idle'),
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
             Text('Audio chunks this take: $_audioChunks'),
             const SizedBox(height: 24),
-            const Text(
-              'Speech recognition (whisper.cpp) is next — capture + hotkey path is live.',
+            Text(
+              'Transcript',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: SelectableText(
+                    _transcript.isEmpty ? '—' : _transcript,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

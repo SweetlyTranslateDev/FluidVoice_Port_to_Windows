@@ -80,13 +80,29 @@ FV_API fv_status fv_audio_read_floats(
 FV_API const char* fv_audio_last_error(void);
 
 /* --- speech_runtime facade (not per-model) --- */
-FV_API fv_status fv_speech_prepare(const char* model_id);
+
+FV_API fv_status fv_speech_init(void);
+FV_API void fv_speech_shutdown(void);
+
+/**
+ * Load a local Whisper model file (ggml/gguf path).
+ * model_id historically meant a logical id; Windows passes a filesystem path.
+ */
+FV_API fv_status fv_speech_prepare(const char* model_path);
+
+/**
+ * Batch-transcribe mono PCM float samples.
+ * On success, *out_text is a malloc'd UTF-8 string; free with fv_speech_free.
+ */
 FV_API fv_status fv_speech_transcribe(
     const float* samples,
     int sample_count,
     int sample_rate,
-    char* out_text,
-    int out_text_cap);
+    char** out_text);
+
+FV_API void fv_speech_free(void* p);
+
+FV_API const char* fv_speech_last_error(void);
 
 /* --- global_hotkeys --- */
 

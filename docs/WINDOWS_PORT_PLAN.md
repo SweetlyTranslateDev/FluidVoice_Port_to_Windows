@@ -94,7 +94,7 @@ global hotkey → mic capture → 16 kHz mono PCM → TranscriptionProvider
 | NSPanel / DynamicNotchKit overlay | Flutter frameless transparent always-on-top window | planned |
 | NSStatusItem menu bar | Tray via MethodChannel / Win32 notify icon | planned |
 | Apple Speech / CoreML / FluidAudio | Drop on Windows; use `speech_runtime` backends | planned |
-| Whisper / TranscribeCpp | `speech_runtime` → whisper.cpp (FFI) | planned |
+| Whisper / TranscribeCpp | `speech_runtime` → whisper.cpp (FFI) | done |
 | Parakeet-class models | `speech_runtime` → ONNX where possible (later) | planned |
 | Keychain | Windows Credential Manager / DPAPI | planned |
 | SMAppService launch-at-login | Startup folder / Run key / Task Scheduler | planned |
