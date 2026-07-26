@@ -13,8 +13,10 @@ import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
 import '../../core/platform/win32_tray_host.dart';
+import '../../core/services/history_manager.dart';
 import '../../core/services/hotkey_state_machine.dart';
 import '../../core/services/settings_manager.dart';
+import '../../core/storage/json_history_store.dart';
 import '../../core/storage/json_settings_store.dart';
 
 /// Dictation shell: F8 PTT → WASAPI → speech_runtime (whisper.cpp).
@@ -33,6 +35,7 @@ class _DictationPageState extends State<DictationPage> {
   final _overlay = Win32OverlayHost();
   final _tray = Win32TrayHost();
   final _settings = SettingsManager(JsonSettingsStore());
+  final _history = HistoryManager(JsonHistoryStore());
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -67,6 +70,7 @@ class _DictationPageState extends State<DictationPage> {
       }
 
       await _settings.load();
+      await _history.load();
       if (_settings.selectedMicId != null &&
           _settings.selectedMicId!.isNotEmpty) {
         await _capture.setDevice(_settings.selectedMicId!);
@@ -223,6 +227,12 @@ class _DictationPageState extends State<DictationPage> {
         } catch (e) {
           injectDetail = 'Transcribed; insert failed: $e';
         }
+      }
+
+      if (result.text.isNotEmpty) {
+        try {
+          await _history.addFromResult(result);
+        } catch (_) {}
       }
 
       try {
