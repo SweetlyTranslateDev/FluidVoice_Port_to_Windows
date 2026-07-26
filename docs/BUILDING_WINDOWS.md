@@ -9,8 +9,10 @@ Instructions for the **Flutter Windows port**. The macOS app still requires macO
 | Windows 10 or 11 | Target platform |
 | Flutter SDK (stable) | Desktop Windows support enabled |
 | Visual Studio 2022 | “Desktop development with C++” workload |
-| CMake | Bundled with VS or standalone |
+| CMake | Prefer `C:\Program Files\CMake\bin\cmake.exe` (not MSYS) |
 | Git | For dependencies / submodules later |
+
+**Path note:** Flutter rejects workspace paths containing `;`. If the repo lives under a path with a semicolon, use a directory junction without that character (for example `C:\dev\FluidVoice_Port_to_Windows`) for `flutter build` / `flutter run`.
 
 Enable Flutter Windows desktop:
 
@@ -63,15 +65,20 @@ flutter_app\build\windows\x64\runner\Release\
 
 ## Native plugins
 
-Phase 0 ships **stubs** under `native_plugins/*/cpp` that link and return “not implemented”.
+### wasapi_audio (Phase 1)
 
-When Phase 1 implementations land:
+`fluidvoice_wasapi.dll` is built automatically with the Flutter Windows runner
+(`flutter_app/windows/CMakeLists.txt` adds `native_plugins/wasapi_audio/cpp`).
 
-1. Build each plugin’s CMake project (or the umbrella CMake, if added).
-2. Ensure the Flutter Windows runner links the produced DLLs / static libs as documented in each plugin `README.md`.
-3. FFI libraries must be discoverable next to the executable or via explicit path loading in Dart.
+```powershell
+cd flutter_app
+flutter build windows
+```
 
-Example stub build pattern (per plugin, when CMakeLists exist):
+The DLL is installed next to `fluidvoice_app.exe`. Dart loads it via
+`DynamicLibrary.open('fluidvoice_wasapi.dll')`.
+
+Standalone build:
 
 ```powershell
 cd native_plugins\wasapi_audio\cpp
@@ -79,7 +86,7 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Exact generator/version may vary with the installed Visual Studio.
+Other plugins (`global_hotkeys`, `speech_runtime`, …) remain stubs until their Phase 1 work.
 
 ## speech_runtime / whisper.cpp
 

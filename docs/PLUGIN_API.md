@@ -128,14 +128,25 @@ Windows: Credential Manager / DPAPI behind the interface.
 
 ## FFI boundary (`native_plugins/plugin_api`)
 
-Document stable C ABI headers here as they are added. Initial expectations:
-
 | Symbol area | Ownership |
 |-------------|-----------|
-| `fv_audio_*` | `wasapi_audio` |
+| `fv_audio_*` | `wasapi_audio` (implemented) |
 | `fv_speech_*` | `speech_runtime` facade |
 | `fv_hotkey_*` | `global_hotkeys` |
 | `fv_inject_*` | `text_injection` |
+
+### wasapi_audio C API (Phase 1)
+
+| Symbol | Role |
+|--------|------|
+| `fv_audio_init` / `fv_audio_shutdown` | Lifecycle / COM |
+| `fv_audio_enumerate_devices` / `fv_audio_free_device_list` | Capture device list |
+| `fv_audio_set_device` | Select endpoint (`NULL` = default) |
+| `fv_audio_start` / `fv_audio_stop` | Capture + worker pipeline |
+| `fv_audio_read_floats` | Non-blocking mono float32 @ 16 kHz poll |
+| `fv_audio_last_error` | Last error string |
+
+Dart: `WasapiAudioCapture` polls `fv_audio_read_floats` on a timer into `Stream<AudioChunk>`.
 
 Rules:
 

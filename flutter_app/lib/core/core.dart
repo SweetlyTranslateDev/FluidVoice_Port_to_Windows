@@ -15,6 +15,8 @@ export 'models/desktop_models.dart';
 export 'models/hotkey_models.dart';
 export 'models/transcript_models.dart';
 export 'platform/unimplemented_platform.dart';
+export 'platform/wasapi_audio_binding.dart';
+export 'platform/wasapi_audio_capture.dart';
 export 'services/app_state.dart';
 export 'services/dictation_controller.dart';
 export 'services/history_manager.dart';

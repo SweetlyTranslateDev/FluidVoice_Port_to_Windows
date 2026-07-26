@@ -1,18 +1,7 @@
-/// FFI binding stub for wasapi_audio.
+/// Canonical Dart FFI/capture code lives in the Flutter app:
+/// `flutter_app/lib/core/platform/wasapi_audio_binding.dart`
+/// `flutter_app/lib/core/platform/wasapi_audio_capture.dart`
 ///
-/// Phase 0 does not load a native library. Phase 1 will `DynamicLibrary.open`
-/// the built DLL and wire [AudioCapture].
-class WasapiAudioBinding {
-  const WasapiAudioBinding();
-
-  bool get isAvailable => false;
-
-  Never _nyi() =>
-      throw UnimplementedError('wasapi_audio FFI not linked (Phase 1)');
-
-  void init() => _nyi();
-
-  void start() => _nyi();
-
-  void stop() => _nyi();
-}
+/// This folder documents the native plugin boundary; keep app packages
+/// self-contained for `flutter pub get` / analyzer.
+library;
