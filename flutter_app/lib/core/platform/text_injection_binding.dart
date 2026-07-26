@@ -21,6 +21,10 @@ class TextInjectionBinding {
   late final Pointer<Utf8> Function() _lastError = _lib.lookupFunction<
       Pointer<Utf8> Function(),
       Pointer<Utf8> Function()>('fv_inject_last_error');
+  late final int Function() _mediaPlayPause =
+      _lib.lookupFunction<Int32 Function(), int Function()>(
+    'fv_media_play_pause',
+  );
 
   static TextInjectionBinding? tryOpen() {
     if (!Platform.isWindows) {
@@ -63,6 +67,13 @@ class TextInjectionBinding {
       return text;
     } finally {
       calloc.free(outPtr);
+    }
+  }
+
+  void mediaPlayPause() {
+    final code = _mediaPlayPause();
+    if (code != 0) {
+      throw StateError('fv_media_play_pause failed (${lastError()})');
     }
   }
 

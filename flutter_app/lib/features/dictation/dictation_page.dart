@@ -78,10 +78,6 @@ class _DictationPageState extends State<DictationPage> {
 
       await _settings.load();
       await _history.load();
-      if (_settings.selectedMicId != null &&
-          _settings.selectedMicId!.isNotEmpty) {
-        await _capture.setDevice(_settings.selectedMicId!);
-      }
 
       _subs.add(_hotkeys.events.listen(_machine.handle));
       _subs.add(_machine.actions.listen(_onAction));
@@ -96,22 +92,52 @@ class _DictationPageState extends State<DictationPage> {
         await _tray.start();
       } catch (_) {}
 
-      await _hotkeys.setShortcut(
-        _settings.hotkeyShortcut ?? kDefaultHotkeyShortcut,
-      );
       await _hotkeys.start();
+      await _applySettings(showModelDownload: true);
 
-      final modelId =
-          _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
-      if (_speech.isNativeAvailable) {
+      if (!mounted) return;
+      _setReadyStatus();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _status = 'Startup failed';
+        _detail = e.toString();
+      });
+    }
+  }
+
+  Future<void> _applySettings({bool showModelDownload = false}) async {
+    await _settings.load();
+
+    if (_settings.hotkeyShortcut == null) {
+      _settings.hotkeyShortcut = kDefaultHotkeyShortcut;
+      await _settings.save();
+    }
+    final shortcut = _settings.hotkeyShortcut!;
+    _machine.setMode(_settings.hotkeyMode);
+    _machine.setShortcut(shortcut);
+    await _hotkeys.setShortcut(shortcut);
+
+    if (_settings.selectedMicId != null &&
+        _settings.selectedMicId!.isNotEmpty &&
+        _capture.isNativeAvailable) {
+      await _capture.setDevice(_settings.selectedMicId!);
+    }
+
+    final modelId =
+        _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
+    if (_speech.isNativeAvailable) {
+      if (showModelDownload && mounted) {
         setState(() {
           _status = 'Downloading Whisper model…';
           _detail = '$modelId (cached after first run)';
         });
-        await _speech.prepare(modelId: modelId);
       }
+      await _speech.prepare(modelId: modelId);
+    }
 
-      if (_settings.localApiEnabled) {
+    if (_settings.localApiEnabled) {
+      if (_localApi == null) {
         _localApi = LocalApiServer(
           settings: _settings,
           history: _history,
@@ -123,28 +149,43 @@ class _DictationPageState extends State<DictationPage> {
           _localApi = null;
         }
       }
-
-      if (!mounted) return;
-      setState(() {
-        _status = 'Ready — hold F8 to dictate';
-        _detail = [
-          if (_capture.isNativeAvailable) 'WASAPI',
-          'hotkeys',
-          if (_speech.isNativeAvailable) 'whisper',
-          if (_injector.isNativeAvailable) 'inject',
-          'tray',
-          if (_localApi != null) 'api:${LocalApiServer.defaultPort}',
-          if (_settings.outputMode != DictationOutputMode.raw)
-            'mode:${_settings.outputMode.name}',
-        ].join(' + ');
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _status = 'Startup failed';
-        _detail = e.toString();
-      });
+    } else if (_localApi != null) {
+      await _localApi!.stop();
+      _localApi = null;
     }
+
+    if (mounted) {
+      _setReadyStatus();
+    }
+  }
+
+  void _setReadyStatus() {
+    setState(() {
+      _status = 'Ready — hold F8 to dictate';
+      _detail = [
+        if (_capture.isNativeAvailable) 'WASAPI',
+        'hotkeys',
+        if (_speech.isNativeAvailable) 'whisper',
+        if (_injector.isNativeAvailable) 'inject',
+        'tray',
+        if (_localApi != null) 'api:${LocalApiServer.defaultPort}',
+        if (_settings.outputMode != DictationOutputMode.raw)
+          'mode:${_settings.outputMode.name}',
+        if (_settings.pauseMediaWhileDictating) 'media-pause',
+      ].join(' + ');
+    });
+  }
+
+  Future<void> _openSettings() async {
+    await Navigator.of(context).pushNamed(AppRoutes.settings);
+    if (!mounted) return;
+    await _applySettings();
+  }
+
+  Future<void> _openModels() async {
+    await Navigator.of(context).pushNamed(AppRoutes.models);
+    if (!mounted) return;
+    await _applySettings(showModelDownload: true);
   }
 
   Future<void> _onTrayAction(TrayAction action) async {
@@ -154,7 +195,7 @@ class _DictationPageState extends State<DictationPage> {
       case 'settings':
         await _tray.showApp();
         if (!mounted) return;
-        await Navigator.of(context).pushNamed(AppRoutes.settings);
+        await _openSettings();
       case 'quit':
         await _tray.quitApp();
       default:
@@ -179,6 +220,11 @@ class _DictationPageState extends State<DictationPage> {
           await _overlay.setClickThrough(true);
           await _overlay.show();
         } catch (_) {}
+        if (_settings.pauseMediaWhileDictating) {
+          try {
+            await _injector.mediaPlayPause();
+          } catch (_) {}
+        }
         if (_capture.isNativeAvailable) {
           try {
             await _capture.start();
@@ -190,6 +236,11 @@ class _DictationPageState extends State<DictationPage> {
       case HotkeyMachineAction.stopRecording:
         if (_capture.isNativeAvailable) {
           await _capture.stop();
+        }
+        if (_settings.pauseMediaWhileDictating) {
+          try {
+            await _injector.mediaPlayPause();
+          } catch (_) {}
         }
         if (!mounted) return;
         setState(() {
@@ -354,9 +405,13 @@ class _DictationPageState extends State<DictationPage> {
         title: const Text('FluidVoice'),
         actions: [
           IconButton(
+            tooltip: 'Models',
+            onPressed: _busy ? null : _openModels,
+            icon: const Icon(Icons.model_training_outlined),
+          ),
+          IconButton(
             tooltip: 'Settings',
-            onPressed: () =>
-                Navigator.of(context).pushNamed(AppRoutes.settings),
+            onPressed: _busy ? null : _openSettings,
             icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(

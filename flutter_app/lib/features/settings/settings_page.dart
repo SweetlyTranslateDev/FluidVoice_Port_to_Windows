@@ -191,10 +191,17 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('Local API'),
             subtitle: Text(
               'Loopback http://127.0.0.1:${LocalApiServer.defaultPort} '
-              '(restart app after Save)',
+              '(applied when you return to dictation)',
             ),
             value: _settings.localApiEnabled,
             onChanged: (v) => setState(() => _settings.localApiEnabled = v),
+          ),
+          SwitchListTile(
+            title: const Text('Pause media while dictating'),
+            subtitle: const Text('Sends play/pause when recording starts and stops'),
+            value: _settings.pauseMediaWhileDictating,
+            onChanged: (v) =>
+                setState(() => _settings.pauseMediaWhileDictating = v),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

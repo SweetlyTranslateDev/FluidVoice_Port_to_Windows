@@ -87,20 +87,20 @@ global hotkey → mic capture → 16 kHz mono PCM → TranscriptionProvider
 
 | macOS implementation | Windows replacement | Status |
 |----------------------|---------------------|--------|
-| SwiftUI / AppKit | Flutter desktop UI | planned |
+| SwiftUI / AppKit | Flutter desktop UI | done (MVP shell) |
 | CoreAudio / AVAudioEngine | WASAPI (`IAudioClient` / `IAudioCaptureClient`) via FFI | done |
 | CGEventTap hotkeys | Low-level hooks and/or `RegisterHotKey`; PTT down/up in Dart state machine | done |
 | Accessibility text insert | SendInput → clipboard restore → UIA WM_CHAR; UIA selection read | done |
 | NSPanel / DynamicNotchKit overlay | Win32 layered always-on-top overlay (MethodChannel) | done |
 | NSStatusItem menu bar | Tray via MethodChannel / Win32 notify icon | done |
-| Apple Speech / CoreML / FluidAudio | Drop on Windows; use `speech_runtime` backends | planned |
+| Apple Speech / CoreML / FluidAudio | Drop on Windows; use `speech_runtime` backends | n/a |
 | Whisper / TranscribeCpp | `speech_runtime` → whisper.cpp (FFI) | done |
 | Parakeet-class models | `speech_runtime` → ONNX where possible (later) | planned |
 | Keychain | Windows Credential Manager / DPAPI | done |
 | SMAppService launch-at-login | Startup folder / Run key / Task Scheduler | done |
 | NWListener local API | Dart `HttpServer` / shelf | done |
-| AppUpdater | Windows installer + portable build (later) | planned |
-| MediaRemote | SMTC / WinRT media (later) | planned |
+| AppUpdater | Windows installer + portable build (later) | done (scripts; polish later) |
+| MediaRemote | SMTC / WinRT media (later) | done (play/pause key MVP) |
 
 Update the **Status** column as work lands (`planned` → `in progress` → `done`).
 
@@ -255,16 +255,16 @@ Goal: hotkey → capture → transcribe → inject/overlay → basic settings/hi
 
 ### Audio
 
-- [ ] Microphone capture works
-- [ ] Multiple devices
-- [ ] Bluetooth headset support
+- [x] Microphone capture works
+- [x] Multiple devices (picker)
+- [ ] Bluetooth headset support (manual verify)
 - [ ] Device disconnect recovery
 
 ### Hotkeys
 
-- [ ] Works globally
-- [ ] Configurable
-- [ ] No stuck keys
+- [x] Works globally (default F8 PTT)
+- [ ] Configurable capture UI (persists keyCode; UI still documents F8)
+- [ ] No stuck keys (manual verify)
 
 ### Injection
 
@@ -277,9 +277,9 @@ Goal: hotkey → capture → transcribe → inject/overlay → basic settings/hi
 
 ### Overlay
 
-- [ ] Always on top
-- [ ] Transparent
-- [ ] Smooth
+- [x] Always on top
+- [x] Layered / semi-transparent
+- [ ] Smooth animations
 
 ### Packaging
 

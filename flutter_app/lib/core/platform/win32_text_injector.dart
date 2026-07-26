@@ -29,4 +29,13 @@ class Win32TextInjector implements TextInjector {
     }
     return binding.readSelection();
   }
+
+  /// Toggle system media play/pause (for “pause while dictating”).
+  Future<void> mediaPlayPause() async {
+    final binding = _binding;
+    if (binding == null) {
+      return;
+    }
+    binding.mediaPlayPause();
+  }
 }

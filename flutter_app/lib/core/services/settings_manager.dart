@@ -16,6 +16,7 @@ class SettingsManager {
   DictationOutputMode outputMode = DictationOutputMode.raw;
   String? aiBaseUrl;
   bool localApiEnabled = false;
+  bool pauseMediaWhileDictating = false;
 
   Future<void> load() async {
     final data = await _store.readAll();
@@ -28,6 +29,7 @@ class SettingsManager {
     aiEnhancementEnabled = data['aiEnhancementEnabled'] == 'true';
     aiBaseUrl = data['aiBaseUrl'];
     localApiEnabled = data['localApiEnabled'] == 'true';
+    pauseMediaWhileDictating = data['pauseMediaWhileDictating'] == 'true';
     outputMode = DictationOutputMode.values.firstWhere(
       (m) => m.name == data['outputMode'],
       orElse: () => aiEnhancementEnabled
@@ -51,6 +53,7 @@ class SettingsManager {
       'outputMode': outputMode.name,
       'aiBaseUrl': aiBaseUrl ?? '',
       'localApiEnabled': localApiEnabled.toString(),
+      'pauseMediaWhileDictating': pauseMediaWhileDictating.toString(),
       'hotkeyKeyCode': hotkeyShortcut?.keyCode.toString() ?? '',
       'hotkeyLabel': hotkeyShortcut?.label ?? '',
     });

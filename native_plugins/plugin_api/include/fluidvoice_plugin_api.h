@@ -156,6 +156,10 @@ FV_API void fv_inject_free(void* p);
 
 FV_API const char* fv_inject_last_error(void);
 
+/** Toggle system media play/pause (VK_MEDIA_PLAY_PAUSE). */
+FV_API fv_status fv_media_play_pause(void);
+
 #ifdef __cplusplus
 }
 #endif
+

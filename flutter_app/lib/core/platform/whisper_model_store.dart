@@ -12,6 +12,8 @@ class WhisperModelStore {
 
   static const defaultModelId = 'tiny.en';
 
+  static const availableModelIds = <String>['tiny.en', 'base.en'];
+
   static const _catalog = <String, _ModelSpec>{
     'tiny.en': _ModelSpec(
       fileName: 'ggml-tiny.en.bin',

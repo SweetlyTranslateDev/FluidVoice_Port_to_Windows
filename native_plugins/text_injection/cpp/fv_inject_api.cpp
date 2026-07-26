@@ -2,6 +2,8 @@
 
 #include "text_injector.h"
 
+#include <windows.h>
+
 #include <cstdlib>
 #include <mutex>
 #include <string>
@@ -51,6 +53,21 @@ FV_API const char* fv_inject_last_error(void) {
     return g_lastError.c_str();
   }
   return g_injector.lastError();
+}
+
+FV_API fv_status fv_media_play_pause(void) {
+  INPUT keys[2] = {};
+  keys[0].type = INPUT_KEYBOARD;
+  keys[0].ki.wVk = VK_MEDIA_PLAY_PAUSE;
+  keys[1].type = INPUT_KEYBOARD;
+  keys[1].ki.wVk = VK_MEDIA_PLAY_PAUSE;
+  keys[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  if (SendInput(2, keys, sizeof(INPUT)) != 2) {
+    setError("SendInput media play/pause failed");
+    return FV_ERR_INTERNAL;
+  }
+  g_lastError.clear();
+  return FV_OK;
 }
 
 }  // extern "C"
