@@ -92,8 +92,8 @@ class _DictationPageState extends State<DictationPage> {
         await _tray.start();
       } catch (_) {}
 
-      await _hotkeys.start();
-      await _applySettings(showModelDownload: true);
+      // Shortcut must be configured before start().
+      await _applySettings(showModelDownload: true, startHotkeys: true);
 
       if (!mounted) return;
       _setReadyStatus();
@@ -106,7 +106,10 @@ class _DictationPageState extends State<DictationPage> {
     }
   }
 
-  Future<void> _applySettings({bool showModelDownload = false}) async {
+  Future<void> _applySettings({
+    bool showModelDownload = false,
+    bool startHotkeys = false,
+  }) async {
     await _settings.load();
 
     if (_settings.hotkeyShortcut == null) {
@@ -117,6 +120,9 @@ class _DictationPageState extends State<DictationPage> {
     _machine.setMode(_settings.hotkeyMode);
     _machine.setShortcut(shortcut);
     await _hotkeys.setShortcut(shortcut);
+    if (startHotkeys) {
+      await _hotkeys.start();
+    }
 
     if (_settings.selectedMicId != null &&
         _settings.selectedMicId!.isNotEmpty &&

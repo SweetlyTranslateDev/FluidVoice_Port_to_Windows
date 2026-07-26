@@ -52,11 +52,8 @@ class Win32HotkeySource implements HotkeySource {
   @override
   Future<void> start() async {
     _ensureInit();
-    final shortcut = _shortcut;
-    if (shortcut == null) {
-      throw StateError('Hotkey shortcut not configured');
-    }
-    await setShortcut(shortcut);
+    // Default to F8 PTT if caller forgot setShortcut().
+    await setShortcut(_shortcut ?? kDefaultHotkeyShortcut);
     _binding!.start();
 
     _eventBuffer ??= calloc<FvHotkeyEvent>(_pollCapacity);
