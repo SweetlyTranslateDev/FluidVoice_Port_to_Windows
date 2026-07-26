@@ -9,6 +9,7 @@ import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
+import '../../core/platform/win32_text_injector.dart';
 import '../../core/services/hotkey_state_machine.dart';
 
 /// Dictation shell: F8 PTT → WASAPI → speech_runtime (whisper.cpp).
@@ -23,6 +24,7 @@ class _DictationPageState extends State<DictationPage> {
   final _hotkeys = Win32HotkeySource();
   final _capture = WasapiAudioCapture();
   final _speech = SpeechRuntimeEngine();
+  final _injector = Win32TextInjector();
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -82,6 +84,7 @@ class _DictationPageState extends State<DictationPage> {
           if (_capture.isNativeAvailable) 'WASAPI',
           'hotkeys',
           if (_speech.isNativeAvailable) 'whisper',
+          if (_injector.isNativeAvailable) 'inject',
         ].join(' + ');
       });
     } catch (e) {
@@ -152,14 +155,25 @@ class _DictationPageState extends State<DictationPage> {
         AudioBuffer(samples: List<double>.from(_pcm), sampleRate: 16000, channels: 1),
       );
       _pcm.clear();
+
+      var injectDetail = result.text.isEmpty
+          ? 'No speech detected'
+          : 'Transcription complete';
+      if (result.text.isNotEmpty && _injector.isNativeAvailable) {
+        try {
+          await _injector.insertText(result.text);
+          injectDetail = 'Inserted into focused app';
+        } catch (e) {
+          injectDetail = 'Transcribed; insert failed: $e';
+        }
+      }
+
       if (!mounted) return;
       setState(() {
         _busy = false;
         _transcript = result.text;
         _status = 'Ready — hold F8 to dictate';
-        _detail = result.text.isEmpty
-            ? 'No speech detected'
-            : 'Transcription complete';
+        _detail = injectDetail;
       });
     } catch (e) {
       if (!mounted) return;

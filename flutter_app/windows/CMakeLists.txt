@@ -65,6 +65,10 @@ set(FLUIDVOICE_SPEECH_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../native_plugins/speech_runtime/cpp")
 add_subdirectory("${FLUIDVOICE_SPEECH_DIR}" "${CMAKE_BINARY_DIR}/fluidvoice_speech")
 
+set(FLUIDVOICE_INJECT_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../native_plugins/text_injection/cpp")
+add_subdirectory("${FLUIDVOICE_INJECT_DIR}" "${CMAKE_BINARY_DIR}/fluidvoice_inject")
+
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
@@ -94,6 +98,9 @@ install(TARGETS fluidvoice_hotkeys RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR
   COMPONENT Runtime)
 
 install(TARGETS fluidvoice_speech RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+install(TARGETS fluidvoice_inject RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 # If whisper.cpp built shared (ggml/whisper), ship those DLLs beside the runner.

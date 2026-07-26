@@ -1,9 +1,4 @@
-/// Text injection binding stub (UIA / SendInput).
-class TextInjectionBinding {
-  const TextInjectionBinding();
-
-  bool get isAvailable => false;
-
-  void insertText(String text) =>
-      throw UnimplementedError('text_injection not linked (Phase 1)');
-}
+/// Canonical Dart bindings live in:
+/// `flutter_app/lib/core/platform/text_injection_binding.dart`
+/// `flutter_app/lib/core/platform/win32_text_injector.dart`
+library;

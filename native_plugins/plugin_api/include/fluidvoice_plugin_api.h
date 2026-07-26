@@ -143,7 +143,18 @@ FV_API fv_status fv_hotkey_poll(
 FV_API const char* fv_hotkey_last_error(void);
 
 /* --- text_injection --- */
+
 FV_API fv_status fv_inject_text(const char* utf8_text);
+
+/**
+ * Read currently selected text in the focused control.
+ * On success, *out_text is malloc'd UTF-8 (may be empty); free with fv_inject_free.
+ */
+FV_API fv_status fv_inject_read_selection(char** out_text);
+
+FV_API void fv_inject_free(void* p);
+
+FV_API const char* fv_inject_last_error(void);
 
 #ifdef __cplusplus
 }
