@@ -86,22 +86,38 @@ cmake -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
 ```
 
-Other plugins (`global_hotkeys`, `speech_runtime`, …) remain stubs until their Phase 1 work.
+Native FFI DLLs built with the runner:
+
+- `fluidvoice_wasapi.dll`
+- `fluidvoice_hotkeys.dll`
+- `fluidvoice_speech.dll` (whisper.cpp via CMake FetchContent)
+- `fluidvoice_inject.dll`
+
+Overlay and tray are compiled into the runner (MethodChannels), not separate DLLs.
 
 ## speech_runtime / whisper.cpp
 
-Whisper GGUF models are **not** bundled in Phase 0. When the whisper.cpp backend is wired:
+Models download on first use (default `tiny.en`) into the app support `FluidVoice\models` folder.
 
-- Document model download location under `%LOCALAPPDATA%\FluidVoice\models` (or similar).
-- Prefer redistributable builds of whisper.cpp with CPU and optional GPU backends documented separately.
-- App still selects models through `SpeechEngine.prepare(modelId: ...)`.
+- App selects models through `SpeechEngine.prepare(modelId: ...)`.
+- First CMake configure clones whisper.cpp (`v1.7.5`); first build is slow.
 
-## Packaging (later phase)
+## Packaging
 
-Planned deliverables:
+Scripts live under `scripts/windows/`:
 
-- Windows installer (e.g. MSIX or Inno Setup / WiX — choose when packaging work starts)
-- Portable zip of the Release runner + native DLLs
+```powershell
+cd C:\dev\FluidVoice_Port_to_Windows
+.\scripts\windows\build_portable.ps1
+.\scripts\windows\build_installer.ps1
+```
+
+| Deliverable | How |
+|-------------|-----|
+| Portable zip | `build_portable.ps1` → `flutter_app\dist\FluidVoice-Windows-portable-*.zip` |
+| Installer | `build_installer.ps1` + [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) → `FluidVoice-Windows-Setup-*.exe` |
+
+The installer script still produces the portable zip if Inno Setup is missing.
 
 Do not ship Electron or Qt wrappers.
 
@@ -125,7 +141,9 @@ That path is independent of `flutter_app/`.
 | Windows desktop disabled | `flutter config --enable-windows-desktop` |
 | VS C++ tools missing | Install VS 2022 Desktop C++ workload |
 | Plugin DLL load fail | Ensure Release/Debug DLL matches runner arch (x64) and is beside the exe |
-| Audio stub errors | Expected in Phase 0 until WASAPI is implemented |
+| Path contains `;` | Use a junction (e.g. `C:\dev\FluidVoice_Port_to_Windows`) for Flutter/CMake |
+| Whisper FetchContent fail | Network access required on first configure; delete `build\windows\x64\_deps` to retry |
+| Tray close quits unexpectedly | Close should hide to tray; use tray **Quit** to exit |
 
 ## Related docs
 

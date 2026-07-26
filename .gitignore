@@ -219,7 +219,10 @@ scratch/
 
 assets/
 .swiftpm/
-scripts/
+# macOS helper scripts stay local; Windows packaging scripts are tracked.
+scripts/*
+!scripts/windows/
+!scripts/windows/**
 
 # Benchmark / eval reports (local-only)
 benchmark_reports/

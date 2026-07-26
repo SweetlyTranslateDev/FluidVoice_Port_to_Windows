@@ -283,8 +283,8 @@ Goal: hotkey → capture → transcribe → inject/overlay → basic settings/hi
 
 ### Packaging
 
-- [ ] Windows installer
-- [ ] Portable build option
+- [x] Windows installer (Inno Setup script + `build_installer.ps1`)
+- [x] Portable build option (`build_portable.ps1`)
 
 Also port the intent of `Tests/FluidDictationIntegrationTests` where applicable (audio convert, hotkey semantics, LLM request shaping, e2e dictation).
 
