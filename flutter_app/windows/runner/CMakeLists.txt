@@ -10,6 +10,10 @@ set(FLUIDVOICE_OVERLAY_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/overlay_window/cpp")
 set(FLUIDVOICE_TRAY_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/tray_host/cpp")
+set(FLUIDVOICE_AUTOSTART_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/autostart/cpp")
+set(FLUIDVOICE_CREDENTIALS_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/credentials/cpp")
 
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
@@ -23,6 +27,8 @@ add_executable(${BINARY_NAME} WIN32
   "${FLUIDVOICE_OVERLAY_DIR}/overlay_plugin.cpp"
   "${FLUIDVOICE_TRAY_DIR}/tray_icon.cpp"
   "${FLUIDVOICE_TRAY_DIR}/tray_plugin.cpp"
+  "${FLUIDVOICE_AUTOSTART_DIR}/autostart_plugin.cpp"
+  "${FLUIDVOICE_CREDENTIALS_DIR}/credentials_plugin.cpp"
 )
 
 # Apply the standard set of build settings. This can be removed for applications
@@ -42,11 +48,13 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app flutter_wrapper_plugin)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "shell32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "shell32.lib" "Advapi32.lib")
 target_include_directories(${BINARY_NAME} PRIVATE
   "${CMAKE_SOURCE_DIR}"
   "${FLUIDVOICE_OVERLAY_DIR}"
   "${FLUIDVOICE_TRAY_DIR}"
+  "${FLUIDVOICE_AUTOSTART_DIR}"
+  "${FLUIDVOICE_CREDENTIALS_DIR}"
 )
 
 # Run the Flutter tool portions of the build. This must not be removed.

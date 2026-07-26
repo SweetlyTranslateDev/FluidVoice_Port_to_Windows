@@ -28,6 +28,8 @@ export 'platform/overlay_window_channel.dart';
 export 'platform/win32_overlay_host.dart';
 export 'platform/tray_channel.dart';
 export 'platform/win32_tray_host.dart';
+export 'platform/win32_autostart.dart';
+export 'platform/win32_credentials_store.dart';
 export 'storage/json_settings_store.dart';
 export 'storage/json_history_store.dart';
 export 'services/app_state.dart';

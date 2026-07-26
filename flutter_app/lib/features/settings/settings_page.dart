@@ -4,6 +4,8 @@ import '../../app/routes/app_routes.dart';
 import '../../core/models/audio_models.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
+import '../../core/platform/win32_autostart.dart';
+import '../../core/platform/win32_credentials_store.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
 
@@ -17,10 +19,17 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   final _capture = WasapiAudioCapture();
   final _settings = SettingsManager(JsonSettingsStore());
+  final _autostart = Win32Autostart();
+  final _credentials = Win32CredentialsStore();
+  final _apiKeyController = TextEditingController();
+  final _baseUrlController = TextEditingController();
+
   List<AudioDeviceInfo> _mics = [];
   String? _error;
   bool _loading = true;
   bool _saving = false;
+  bool _launchAtLogin = false;
+  bool _hasStoredApiKey = false;
 
   @override
   void initState() {
@@ -30,6 +39,20 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _load() async {
     await _settings.load();
+    _baseUrlController.text = _settings.aiBaseUrl ?? '';
+    try {
+      _launchAtLogin = await _autostart.isEnabled();
+    } catch (_) {
+      _launchAtLogin = false;
+    }
+    try {
+      final existing =
+          await _credentials.readSecret(Win32CredentialsStore.aiApiKey);
+      _hasStoredApiKey = existing != null && existing.isNotEmpty;
+    } catch (_) {
+      _hasStoredApiKey = false;
+    }
+
     if (!_capture.isNativeAvailable) {
       setState(() {
         _loading = false;
@@ -65,7 +88,22 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _persist() async {
     setState(() => _saving = true);
+    _settings.aiBaseUrl = _baseUrlController.text.trim();
     await _settings.save();
+
+    try {
+      await _autostart.setEnabled(_launchAtLogin);
+    } catch (_) {}
+
+    final newKey = _apiKeyController.text.trim();
+    if (newKey.isNotEmpty) {
+      try {
+        await _credentials.writeSecret(Win32CredentialsStore.aiApiKey, newKey);
+        _hasStoredApiKey = true;
+        _apiKeyController.clear();
+      } catch (_) {}
+    }
+
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -73,8 +111,21 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<void> _clearApiKey() async {
+    try {
+      await _credentials.deleteSecret(Win32CredentialsStore.aiApiKey);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _hasStoredApiKey = false;
+      _apiKeyController.clear();
+    });
+  }
+
   @override
   void dispose() {
+    _apiKeyController.dispose();
+    _baseUrlController.dispose();
     _capture.dispose();
     super.dispose();
   }
@@ -99,6 +150,12 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       body: ListView(
         children: [
+          SwitchListTile(
+            title: const Text('Launch at login'),
+            subtitle: const Text('Start FluidVoice when you sign in to Windows'),
+            value: _launchAtLogin,
+            onChanged: (v) => setState(() => _launchAtLogin = v),
+          ),
           ListTile(
             title: const Text('Speech models'),
             subtitle: Text(
@@ -114,7 +171,40 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('AI enhancement'),
             subtitle: const Text('OpenAI-compatible post-process (optional)'),
             value: _settings.aiEnhancementEnabled,
-            onChanged: (v) => setState(() => _settings.aiEnhancementEnabled = v),
+            onChanged: (v) =>
+                setState(() => _settings.aiEnhancementEnabled = v),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _baseUrlController,
+              decoration: const InputDecoration(
+                labelText: 'AI base URL',
+                hintText: 'https://api.openai.com/v1',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: TextField(
+              controller: _apiKeyController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: 'AI API key',
+                hintText: _hasStoredApiKey
+                    ? 'Saved in Credential Manager — enter to replace'
+                    : 'Stored in Windows Credential Manager',
+                border: const OutlineInputBorder(),
+                suffixIcon: _hasStoredApiKey
+                    ? IconButton(
+                        tooltip: 'Clear stored key',
+                        onPressed: _clearApiKey,
+                        icon: const Icon(Icons.clear),
+                      )
+                    : null,
+              ),
+            ),
           ),
           const ListTile(
             title: Text('Microphone (WASAPI)'),

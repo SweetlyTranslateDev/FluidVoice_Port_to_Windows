@@ -4,6 +4,8 @@
 
 #include <flutter/plugin_registrar_windows.h>
 
+#include "autostart_plugin.h"
+#include "credentials_plugin.h"
 #include "flutter/generated_plugin_registrant.h"
 #include "overlay_plugin.h"
 #include "tray_plugin.h"
@@ -39,6 +41,16 @@ bool FlutterWindow::OnCreate() {
           ->GetRegistrar<flutter::PluginRegistrarWindows>(
               flutter_controller_->engine()->GetRegistrarForPlugin(
                   "FluidVoiceTrayPlugin")));
+  RegisterAutostartPlugin(
+      flutter::PluginRegistrarManager::GetInstance()
+          ->GetRegistrar<flutter::PluginRegistrarWindows>(
+              flutter_controller_->engine()->GetRegistrarForPlugin(
+                  "FluidVoiceAutostartPlugin")));
+  RegisterCredentialsPlugin(
+      flutter::PluginRegistrarManager::GetInstance()
+          ->GetRegistrar<flutter::PluginRegistrarWindows>(
+              flutter_controller_->engine()->GetRegistrarForPlugin(
+                  "FluidVoiceCredentialsPlugin")));
   TrayPluginSetAppWindow(GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   // Close button hides to tray; Quit comes from the tray menu.
