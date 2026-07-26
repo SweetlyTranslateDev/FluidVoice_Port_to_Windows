@@ -1,20 +1,135 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/routes/app_routes.dart';
+import '../../core/models/hotkey_models.dart';
+import '../../core/platform/wasapi_audio_capture.dart';
+import '../../core/platform/win32_hotkey_source.dart';
+import '../../core/services/hotkey_state_machine.dart';
 
-/// Dictation status shell. Wired to DictationController in Phase 1.
-class DictationPage extends StatelessWidget {
+/// Dictation status shell. Hotkey + mic capture wired; speech comes next.
+class DictationPage extends StatefulWidget {
   const DictationPage({super.key});
 
   @override
+  State<DictationPage> createState() => _DictationPageState();
+}
+
+class _DictationPageState extends State<DictationPage> {
+  final _hotkeys = Win32HotkeySource();
+  final _capture = WasapiAudioCapture();
+  late final HotkeyStateMachine _machine;
+
+  final List<StreamSubscription<dynamic>> _subs = [];
+  String _status = 'Starting…';
+  String _detail = '';
+  bool _recording = false;
+  int _audioChunks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _machine = HotkeyStateMachine(
+      mode: HotkeyActivationMode.pushToTalk,
+      shortcut: kDefaultHotkeyShortcut,
+    );
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      if (!_hotkeys.isNativeAvailable) {
+        setState(() {
+          _status = 'Hotkeys DLL missing';
+          _detail =
+              'Build with: cd C:\\dev\\FluidVoice_Port_to_Windows\\flutter_app ; flutter run -d windows';
+        });
+        return;
+      }
+
+      _subs.add(_hotkeys.events.listen(_machine.handle));
+      _subs.add(_machine.actions.listen(_onAction));
+      _subs.add(_capture.audioStream.listen((_) {
+        if (!mounted) return;
+        setState(() => _audioChunks += 1);
+      }));
+
+      await _hotkeys.setShortcut(kDefaultHotkeyShortcut);
+      await _hotkeys.start();
+
+      if (!mounted) return;
+      setState(() {
+        _status = 'Ready — hold F8 to capture';
+        _detail = _capture.isNativeAvailable
+            ? 'WASAPI + hotkeys loaded'
+            : 'Hotkeys OK; WASAPI DLL missing';
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _status = 'Failed to start hotkeys';
+        _detail = e.toString();
+      });
+    }
+  }
+
+  Future<void> _onAction(HotkeyMachineAction action) async {
+    switch (action) {
+      case HotkeyMachineAction.startRecording:
+        setState(() {
+          _recording = true;
+          _status = 'Recording (F8 held)';
+          _audioChunks = 0;
+        });
+        if (_capture.isNativeAvailable) {
+          try {
+            await _capture.start();
+          } catch (e) {
+            if (!mounted) return;
+            setState(() => _detail = 'Mic start failed: $e');
+          }
+        }
+      case HotkeyMachineAction.stopRecording:
+        if (_capture.isNativeAvailable) {
+          await _capture.stop();
+        }
+        if (!mounted) return;
+        setState(() {
+          _recording = false;
+          _status = 'Ready — hold F8 to capture';
+          _detail = 'Last take: $_audioChunks audio chunks @ 16 kHz';
+        });
+      case HotkeyMachineAction.toggleRecording:
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _subs) {
+      unawaited(sub.cancel());
+    }
+    unawaited(_capture.dispose());
+    unawaited(_hotkeys.dispose());
+    unawaited(_machine.dispose());
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final color = _recording
+        ? Theme.of(context).colorScheme.error
+        : Theme.of(context).colorScheme.primary;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('FluidVoice'),
         actions: [
           IconButton(
             tooltip: 'Settings',
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.settings),
+            onPressed: () =>
+                Navigator.of(context).pushNamed(AppRoutes.settings),
             icon: const Icon(Icons.settings_outlined),
           ),
           IconButton(
@@ -24,25 +139,32 @@ class DictationPage extends StatelessWidget {
           ),
         ],
       ),
-      body: const Padding(
-        padding: EdgeInsets.all(24),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Windows port scaffold',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+              _status,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
+            Text(_detail),
+            const SizedBox(height: 24),
             Text(
-              'Phase 0: Dart core interfaces and managers are in place. '
-              'WASAPI, hotkeys, speech_runtime, and text injection are not '
-              'implemented yet.',
+              _recording ? 'Listening…' : 'Idle',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-            SizedBox(height: 24),
-            Text('Status: idle (stub)'),
-            SizedBox(height: 8),
-            Text('Live transcript will appear here.'),
+            const SizedBox(height: 8),
+            Text('Audio chunks this take: $_audioChunks'),
+            const SizedBox(height: 24),
+            const Text(
+              'Speech recognition (whisper.cpp) is next — capture + hotkey path is live.',
+            ),
           ],
         ),
       ),

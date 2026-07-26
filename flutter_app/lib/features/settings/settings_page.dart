@@ -68,7 +68,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           const ListTile(
             title: Text('Hotkey'),
-            subtitle: Text('Configured in SettingsManager (stub)'),
+            subtitle: Text('Push-to-talk: hold F8 (WH_KEYBOARD_LL)'),
           ),
           const ListTile(
             title: Text('Microphone (WASAPI)'),

@@ -89,7 +89,7 @@ global hotkey → mic capture → 16 kHz mono PCM → TranscriptionProvider
 |----------------------|---------------------|--------|
 | SwiftUI / AppKit | Flutter desktop UI | planned |
 | CoreAudio / AVAudioEngine | WASAPI (`IAudioClient` / `IAudioCaptureClient`) via FFI | in progress |
-| CGEventTap hotkeys | Low-level hooks and/or `RegisterHotKey`; PTT down/up in Dart state machine | planned |
+| CGEventTap hotkeys | Low-level hooks and/or `RegisterHotKey`; PTT down/up in Dart state machine | in progress |
 | Accessibility text insert | UI Automation primary; `SendInput` + clipboard restore fallback | planned |
 | NSPanel / DynamicNotchKit overlay | Flutter frameless transparent always-on-top window | planned |
 | NSStatusItem menu bar | Tray via MethodChannel / Win32 notify icon | planned |

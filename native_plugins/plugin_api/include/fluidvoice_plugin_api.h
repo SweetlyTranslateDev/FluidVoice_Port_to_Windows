@@ -89,8 +89,42 @@ FV_API fv_status fv_speech_transcribe(
     int out_text_cap);
 
 /* --- global_hotkeys --- */
+
+#define FV_HOTKEY_MOD_CONTROL 0x0001
+#define FV_HOTKEY_MOD_ALT     0x0002
+#define FV_HOTKEY_MOD_SHIFT   0x0004
+#define FV_HOTKEY_MOD_WIN     0x0008
+
+#define FV_HOTKEY_EVENT_DOWN 1
+#define FV_HOTKEY_EVENT_UP   2
+
+typedef struct fv_hotkey_event {
+  int32_t type;       /* FV_HOTKEY_EVENT_DOWN / UP */
+  int32_t vk_code;    /* Win32 virtual-key code */
+  int32_t modifiers;  /* FV_HOTKEY_MOD_* bitfield at event time */
+} fv_hotkey_event;
+
+FV_API fv_status fv_hotkey_init(void);
+FV_API void fv_hotkey_shutdown(void);
+
+/** Configure the shortcut to emit (vk + required modifiers). */
+FV_API fv_status fv_hotkey_set_shortcut(int32_t vk_code, int32_t modifiers);
+
+/**
+ * Install WH_KEYBOARD_LL on a dedicated message-pump thread.
+ * Emits matching key down/up into a queue; Dart polls with fv_hotkey_poll.
+ * No dictation / PTT business logic here.
+ */
 FV_API fv_status fv_hotkey_start(void);
 FV_API fv_status fv_hotkey_stop(void);
+
+/** Non-blocking drain of queued events into out[0..max_events). */
+FV_API fv_status fv_hotkey_poll(
+    fv_hotkey_event* out_events,
+    int32_t max_events,
+    int32_t* out_count);
+
+FV_API const char* fv_hotkey_last_error(void);
 
 /* --- text_injection --- */
 FV_API fv_status fv_inject_text(const char* utf8_text);

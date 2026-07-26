@@ -132,7 +132,7 @@ Windows: Credential Manager / DPAPI behind the interface.
 |-------------|-----------|
 | `fv_audio_*` | `wasapi_audio` (implemented) |
 | `fv_speech_*` | `speech_runtime` facade |
-| `fv_hotkey_*` | `global_hotkeys` |
+| `fv_hotkey_*` | `global_hotkeys` (implemented) |
 | `fv_inject_*` | `text_injection` |
 
 ### wasapi_audio C API (Phase 1)
@@ -147,6 +147,18 @@ Windows: Credential Manager / DPAPI behind the interface.
 | `fv_audio_last_error` | Last error string |
 
 Dart: `WasapiAudioCapture` polls `fv_audio_read_floats` on a timer into `Stream<AudioChunk>`.
+
+### global_hotkeys C API (Phase 1)
+
+| Symbol | Role |
+|--------|------|
+| `fv_hotkey_init` / `fv_hotkey_shutdown` | Lifecycle |
+| `fv_hotkey_set_shortcut` | VK + modifier bitfield |
+| `fv_hotkey_start` / `fv_hotkey_stop` | `WH_KEYBOARD_LL` on message-pump thread |
+| `fv_hotkey_poll` | Non-blocking event drain for Dart |
+| `fv_hotkey_last_error` | Last error string |
+
+Dart: `Win32HotkeySource` polls into `Stream<HotkeyEvent>`; `HotkeyStateMachine` owns PTT/toggle.
 
 Rules:
 

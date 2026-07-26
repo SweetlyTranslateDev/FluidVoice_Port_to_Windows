@@ -52,10 +52,14 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
-# FluidVoice WASAPI capture DLL (FFI). Built and installed beside the runner.
+# FluidVoice native FFI DLLs (built and installed beside the runner).
 set(FLUIDVOICE_WASAPI_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../native_plugins/wasapi_audio/cpp")
 add_subdirectory("${FLUIDVOICE_WASAPI_DIR}" "${CMAKE_BINARY_DIR}/fluidvoice_wasapi")
+
+set(FLUIDVOICE_HOTKEYS_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../native_plugins/global_hotkeys/cpp")
+add_subdirectory("${FLUIDVOICE_HOTKEYS_DIR}" "${CMAKE_BINARY_DIR}/fluidvoice_hotkeys")
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
@@ -80,6 +84,9 @@ install(TARGETS ${BINARY_NAME} RUNTIME DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 install(TARGETS fluidvoice_wasapi RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+install(TARGETS fluidvoice_hotkeys RUNTIME DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
