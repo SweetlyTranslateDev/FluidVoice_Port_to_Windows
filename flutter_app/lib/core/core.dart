@@ -24,6 +24,8 @@ export 'platform/speech_runtime_engine.dart';
 export 'platform/whisper_model_store.dart';
 export 'platform/text_injection_binding.dart';
 export 'platform/win32_text_injector.dart';
+export 'platform/overlay_window_channel.dart';
+export 'platform/win32_overlay_host.dart';
 export 'services/app_state.dart';
 export 'services/dictation_controller.dart';
 export 'services/history_manager.dart';

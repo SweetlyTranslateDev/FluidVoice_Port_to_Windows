@@ -9,6 +9,7 @@ import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
+import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
 import '../../core/services/hotkey_state_machine.dart';
 
@@ -25,6 +26,7 @@ class _DictationPageState extends State<DictationPage> {
   final _capture = WasapiAudioCapture();
   final _speech = SpeechRuntimeEngine();
   final _injector = Win32TextInjector();
+  final _overlay = Win32OverlayHost();
   late final HotkeyStateMachine _machine;
 
   final List<StreamSubscription<dynamic>> _subs = [];
@@ -107,6 +109,11 @@ class _DictationPageState extends State<DictationPage> {
           _audioChunks = 0;
           _transcript = '';
         });
+        try {
+          await _overlay.setTranscript('');
+          await _overlay.setClickThrough(true);
+          await _overlay.show();
+        } catch (_) {}
         if (_capture.isNativeAvailable) {
           try {
             await _capture.start();
@@ -126,6 +133,9 @@ class _DictationPageState extends State<DictationPage> {
           _status = 'Transcribing…';
           _detail = '${_pcm.length} samples @ 16 kHz';
         });
+        try {
+          await _overlay.setTranscript('Transcribing…');
+        } catch (_) {}
         await _finishTranscription();
       case HotkeyMachineAction.toggleRecording:
         break;
@@ -135,6 +145,9 @@ class _DictationPageState extends State<DictationPage> {
   Future<void> _finishTranscription() async {
     try {
       if (!_speech.isNativeAvailable) {
+        try {
+          await _overlay.hide();
+        } catch (_) {}
         setState(() {
           _busy = false;
           _status = 'Ready — hold F8 to dictate';
@@ -143,6 +156,9 @@ class _DictationPageState extends State<DictationPage> {
         return;
       }
       if (_pcm.isEmpty) {
+        try {
+          await _overlay.hide();
+        } catch (_) {}
         setState(() {
           _busy = false;
           _status = 'Ready — hold F8 to dictate';
@@ -168,6 +184,14 @@ class _DictationPageState extends State<DictationPage> {
         }
       }
 
+      try {
+        if (result.text.isNotEmpty) {
+          await _overlay.setTranscript(result.text);
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+        await _overlay.hide();
+      } catch (_) {}
+
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -176,6 +200,9 @@ class _DictationPageState extends State<DictationPage> {
         _detail = injectDetail;
       });
     } catch (e) {
+      try {
+        await _overlay.hide();
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _busy = false;

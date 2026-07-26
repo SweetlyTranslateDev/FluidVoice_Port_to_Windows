@@ -91,7 +91,7 @@ global hotkey → mic capture → 16 kHz mono PCM → TranscriptionProvider
 | CoreAudio / AVAudioEngine | WASAPI (`IAudioClient` / `IAudioCaptureClient`) via FFI | in progress |
 | CGEventTap hotkeys | Low-level hooks and/or `RegisterHotKey`; PTT down/up in Dart state machine | in progress |
 | Accessibility text insert | SendInput → clipboard restore → UIA WM_CHAR; UIA selection read | done |
-| NSPanel / DynamicNotchKit overlay | Flutter frameless transparent always-on-top window | planned |
+| NSPanel / DynamicNotchKit overlay | Win32 layered always-on-top overlay (MethodChannel) | done |
 | NSStatusItem menu bar | Tray via MethodChannel / Win32 notify icon | planned |
 | Apple Speech / CoreML / FluidAudio | Drop on Windows; use `speech_runtime` backends | planned |
 | Whisper / TranscribeCpp | `speech_runtime` → whisper.cpp (FFI) | done |
