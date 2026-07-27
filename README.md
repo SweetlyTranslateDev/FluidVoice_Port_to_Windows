@@ -32,6 +32,8 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 
 **This is not a full port of macOS FluidVoice.** See [docs/WINDOWS_RELEASE_NOTES.md](docs/WINDOWS_RELEASE_NOTES.md) for a clear **ported vs not ported** list to use on GitHub Releases with the installer / portable zip.
 
+## Download it, use it, love it. I am very pleased with how this has turned out so far.
+
 ---
 
 ## How to build
