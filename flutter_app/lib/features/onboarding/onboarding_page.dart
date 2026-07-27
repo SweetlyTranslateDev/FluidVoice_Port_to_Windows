@@ -24,42 +24,31 @@ class OnboardingPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: FluidColors.accent.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(FluidRadii.sm),
-                      border: Border.all(
-                        color: FluidColors.accent.withValues(alpha: 0.45),
-                      ),
-                    ),
-                    child: Text(
-                      'F',
-                      style: fluidText(
-                        color: FluidColors.accent,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(FluidRadii.md),
+                    child: Image.asset(
+                      'assets/branding/fluidvoice_logo.png',
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.cover,
                     ),
                   ),
                   const SizedBox(height: FluidSpacing.xl),
                   Text('Welcome to FluidVoice', style: theme.textTheme.titleLarge),
                   const SizedBox(height: FluidSpacing.sm),
                   Text(
-                    'Windows dictation MVP',
+                    'Windows dictation',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: FluidColors.secondaryText,
                     ),
                   ),
                   const SizedBox(height: FluidSpacing.xl),
-                  const _Step('Hold F8 to talk (push-to-talk).'),
+                  const _Step('Hold your hotkey to talk (push-to-talk).'),
                   const _Step(
-                    'Release F8 to transcribe and insert into the focused app.',
+                    'Release to transcribe and insert into the focused app.',
                   ),
                   const _Step(
-                    'Pick a microphone and Whisper model in Settings.',
+                    'Pick a microphone and speech model (Whisper or Parakeet).',
                   ),
                   const _Step(
                     'Optional: AI enhance needs an API key (Credential Manager).',

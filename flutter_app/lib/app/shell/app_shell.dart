@@ -287,23 +287,27 @@ class _BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mark = Container(
-      width: 28,
-      height: 28,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: FluidColors.accent.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(FluidRadii.sm),
-        border: Border.all(
-          color: FluidColors.accent.withValues(alpha: 0.45),
-        ),
-      ),
-      child: Text(
-        'F',
-        style: fluidText(
-          color: FluidColors.accent,
-          fontWeight: FontWeight.w700,
-          fontSize: 15,
+    final mark = ClipRRect(
+      borderRadius: BorderRadius.circular(FluidRadii.sm),
+      child: Image.asset(
+        'assets/branding/fluidvoice_logo.png',
+        width: compact ? 32 : 28,
+        height: compact ? 32 : 28,
+        fit: BoxFit.cover,
+        filterQuality: FilterQuality.medium,
+        errorBuilder: (_, __, ___) => Container(
+          width: 28,
+          height: 28,
+          alignment: Alignment.center,
+          color: FluidColors.accent.withValues(alpha: 0.18),
+          child: Text(
+            'F',
+            style: fluidText(
+              color: FluidColors.accent,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+          ),
         ),
       ),
     );

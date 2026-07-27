@@ -49,7 +49,11 @@ bool TrayIcon::start(HWND appWindow) {
   m_nid.uID = 1;
   m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
   m_nid.uCallbackMessage = kTrayMsg;
-  m_nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+  // Use the runner's app icon (IDI_APP_ICON = 101), not the generic Windows icon.
+  m_nid.hIcon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(101));
+  if (m_nid.hIcon == nullptr) {
+    m_nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+  }
   wcsncpy_s(m_nid.szTip, m_tooltip.c_str(), _TRUNCATE);
 
   if (!Shell_NotifyIconW(NIM_ADD, &m_nid)) {

@@ -1,5 +1,9 @@
 # FluidVoice for Windows
 
+<p align="center">
+  <img src="branding/fluidvoice_logo.png" alt="FluidVoice Windows Port" width="280"/>
+</p>
+
 Local **Windows** voice-to-text dictation app. Hold a global hotkey, speak, release — text is transcribed on-device and inserted into the focused application.
 
 This repository is a **Flutter + native C++ Windows port**. The original FluidVoice macOS app (Swift) remains in-tree as reference only and is **not** what you build or run on Windows.

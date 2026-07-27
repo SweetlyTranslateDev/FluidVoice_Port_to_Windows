@@ -222,6 +222,11 @@ create_dmg_only.sh
 scratch/
 
 assets/
+# Track Windows branding assets (fonts under assets/fonts stay local/ignored).
+!flutter_app/assets/
+flutter_app/assets/**
+!flutter_app/assets/branding/
+!flutter_app/assets/branding/**
 .swiftpm/
 # macOS helper scripts stay local; Windows packaging scripts are tracked.
 scripts/*
