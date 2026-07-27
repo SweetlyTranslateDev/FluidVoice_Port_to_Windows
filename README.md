@@ -1,7 +1,7 @@
 # FluidVoice for Windows
 
 <p align="center">
-  <img src="branding/fluidvoice_logo.png" alt="FluidVoice Windows Port" width="280"/>
+  <img src="branding/FVLogo.png" alt="FluidVoice Windows Port" width="350"/>
 </p>
 
 Local **Windows** voice-to-text dictation app. Hold a global hotkey, speak, release — text is transcribed on-device and inserted into the focused application.
