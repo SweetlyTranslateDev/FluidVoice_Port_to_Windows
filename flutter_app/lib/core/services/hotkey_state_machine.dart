@@ -73,7 +73,32 @@ class HotkeyStateMachine {
   }
 
   bool _modifiersMatch(Set<HotkeyModifier> actual, Set<HotkeyModifier> required) {
-    return required.every(actual.contains);
+    bool held(HotkeyModifier m) {
+      if (m == HotkeyModifier.meta || m == HotkeyModifier.win) {
+        return actual.contains(HotkeyModifier.meta) ||
+            actual.contains(HotkeyModifier.win);
+      }
+      return actual.contains(m);
+    }
+
+    bool wanted(HotkeyModifier m) {
+      if (m == HotkeyModifier.meta || m == HotkeyModifier.win) {
+        return required.contains(HotkeyModifier.meta) ||
+            required.contains(HotkeyModifier.win);
+      }
+      return required.contains(m);
+    }
+
+    // Exact match on ctrl/alt/shift/win so Ctrl+F8 ≠ bare F8.
+    for (final m in const [
+      HotkeyModifier.control,
+      HotkeyModifier.alt,
+      HotkeyModifier.shift,
+      HotkeyModifier.win,
+    ]) {
+      if (held(m) != wanted(m)) return false;
+    }
+    return true;
   }
 
   Future<void> dispose() async {

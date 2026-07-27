@@ -9,6 +9,7 @@
 #include "flutter/generated_plugin_registrant.h"
 #include "overlay_plugin.h"
 #include "tray_plugin.h"
+#include "window_chrome_plugin.h"
 
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
@@ -51,7 +52,13 @@ bool FlutterWindow::OnCreate() {
           ->GetRegistrar<flutter::PluginRegistrarWindows>(
               flutter_controller_->engine()->GetRegistrarForPlugin(
                   "FluidVoiceCredentialsPlugin")));
+  RegisterWindowChromePlugin(
+      flutter::PluginRegistrarManager::GetInstance()
+          ->GetRegistrar<flutter::PluginRegistrarWindows>(
+              flutter_controller_->engine()->GetRegistrarForPlugin(
+                  "FluidVoiceWindowChromePlugin")));
   TrayPluginSetAppWindow(GetHandle());
+  WindowChromePluginSetAppWindow(GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
   // Close button hides to tray; Quit comes from the tray menu.
   SetQuitOnClose(false);

@@ -15,6 +15,16 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef DWMWA_SYSTEMBACKDROP_TYPE
+#define DWMWA_SYSTEMBACKDROP_TYPE 38
+#endif
+#ifndef DWMSBT_TRANSIENTWINDOW
+#define DWMSBT_TRANSIENTWINDOW 3
+#endif
+
+// Logical minimum size (DIP). Stops Flutter debug overflow stripes.
+constexpr int kMinWindowWidthDip = 900;
+constexpr int kMinWindowHeightDip = 560;
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 
@@ -51,6 +61,18 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
     enable_non_client_dpi_scaling(hwnd);
   }
   FreeLibrary(user32_module);
+}
+
+}  // namespace
+
+namespace {
+
+void EnableAcrylicBackdrop(HWND hwnd) {
+  const int backdrop = DWMSBT_TRANSIENTWINDOW;
+  DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop,
+                        sizeof(backdrop));
+  const MARGINS margins = {-1};
+  DwmExtendFrameIntoClientArea(hwnd, &margins);
 }
 
 }  // namespace
@@ -145,6 +167,7 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
+  EnableAcrylicBackdrop(window);
 
   return OnCreate();
 }
@@ -216,6 +239,18 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_DWMCOLORIZATIONCOLORCHANGED:
       UpdateTheme(hwnd);
       return 0;
+
+    case WM_GETMINMAXINFO: {
+      auto* info = reinterpret_cast<MINMAXINFO*>(lparam);
+      UINT dpi = FlutterDesktopGetDpiForHWND(hwnd);
+      if (dpi == 0) {
+        dpi = 96;
+      }
+      const double scale = dpi / 96.0;
+      info->ptMinTrackSize.x = Scale(kMinWindowWidthDip, scale);
+      info->ptMinTrackSize.y = Scale(kMinWindowHeightDip, scale);
+      return 0;
+    }
   }
 
   return DefWindowProc(window_handle_, message, wparam, lparam);

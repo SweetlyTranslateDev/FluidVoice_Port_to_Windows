@@ -14,6 +14,8 @@ set(FLUIDVOICE_AUTOSTART_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/autostart/cpp")
 set(FLUIDVOICE_CREDENTIALS_DIR
   "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/credentials/cpp")
+set(FLUIDVOICE_WINDOW_CHROME_DIR
+  "${CMAKE_CURRENT_SOURCE_DIR}/../../../native_plugins/window_chrome/cpp")
 
 add_executable(${BINARY_NAME} WIN32
   "flutter_window.cpp"
@@ -29,6 +31,7 @@ add_executable(${BINARY_NAME} WIN32
   "${FLUIDVOICE_TRAY_DIR}/tray_plugin.cpp"
   "${FLUIDVOICE_AUTOSTART_DIR}/autostart_plugin.cpp"
   "${FLUIDVOICE_CREDENTIALS_DIR}/credentials_plugin.cpp"
+  "${FLUIDVOICE_WINDOW_CHROME_DIR}/window_chrome_plugin.cpp"
 )
 
 # Apply the standard set of build settings. This can be removed for applications
@@ -55,6 +58,7 @@ target_include_directories(${BINARY_NAME} PRIVATE
   "${FLUIDVOICE_TRAY_DIR}"
   "${FLUIDVOICE_AUTOSTART_DIR}"
   "${FLUIDVOICE_CREDENTIALS_DIR}"
+  "${FLUIDVOICE_WINDOW_CHROME_DIR}"
 )
 
 # Run the Flutter tool portions of the build. This must not be removed.

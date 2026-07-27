@@ -2,13 +2,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../app/routes/app_routes.dart';
+import '../../app/shell/shell_navigation.dart';
+import '../../app/theme/app_theme.dart';
+import '../../app/widgets/fluid_card.dart';
 import '../../core/ai/openai_compatible_provider.dart';
 import '../../core/models/audio_models.dart';
 import '../../core/models/dictation_mode.dart';
 import '../../core/models/hotkey_models.dart';
 import '../../core/models/desktop_models.dart';
 import '../../core/models/transcript_models.dart';
+import '../../core/platform/hotkey_vk.dart';
 import '../../core/platform/speech_runtime_engine.dart';
 import '../../core/platform/wasapi_audio_capture.dart';
 import '../../core/platform/whisper_model_store.dart';
@@ -17,6 +20,7 @@ import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
 import '../../core/platform/win32_tray_host.dart';
+import '../../core/platform/window_chrome_channel.dart';
 import '../../core/services/history_manager.dart';
 import '../../core/services/hotkey_state_machine.dart';
 import '../../core/services/local_api_server.dart';
@@ -29,10 +33,10 @@ class DictationPage extends StatefulWidget {
   const DictationPage({super.key});
 
   @override
-  State<DictationPage> createState() => _DictationPageState();
+  State<DictationPage> createState() => DictationPageState();
 }
 
-class _DictationPageState extends State<DictationPage> {
+class DictationPageState extends State<DictationPage> {
   final _hotkeys = Win32HotkeySource();
   final _capture = WasapiAudioCapture();
   final _speech = SpeechRuntimeEngine();
@@ -42,8 +46,10 @@ class _DictationPageState extends State<DictationPage> {
   final _settings = SettingsManager(JsonSettingsStore());
   final _history = HistoryManager(JsonHistoryStore());
   final _credentials = Win32CredentialsStore();
+  final _windowChrome = WindowChromeChannel();
   LocalApiServer? _localApi;
   late final HotkeyStateMachine _machine;
+  String _hotkeyLabel = 'F8';
 
   final List<StreamSubscription<dynamic>> _subs = [];
   final List<double> _pcm = [];
@@ -77,7 +83,8 @@ class _DictationPageState extends State<DictationPage> {
       }
 
       await _settings.load();
-      await _history.load();
+      await _history.load(retentionDays: _settings.historyRetentionDays);
+      await _applyWindowChrome();
 
       _subs.add(_hotkeys.events.listen(_machine.handle));
       _subs.add(_machine.actions.listen(_onAction));
@@ -120,6 +127,8 @@ class _DictationPageState extends State<DictationPage> {
     _machine.setMode(_settings.hotkeyMode);
     _machine.setShortcut(shortcut);
     await _hotkeys.setShortcut(shortcut);
+    _hotkeyLabel = formatHotkeyShortcut(shortcut);
+    await _applyWindowChrome();
     if (startHotkeys) {
       await _hotkeys.start();
     }
@@ -165,9 +174,16 @@ class _DictationPageState extends State<DictationPage> {
     }
   }
 
+  Future<void> _applyWindowChrome() async {
+    try {
+      await _windowChrome.setAlwaysOnTop(_settings.alwaysOnTop);
+      await _windowChrome.setAcrylic(_settings.acrylicEnabled);
+    } catch (_) {}
+  }
+
   void _setReadyStatus() {
     setState(() {
-      _status = 'Ready — hold F8 to dictate';
+      _status = 'Ready — hold $_hotkeyLabel to dictate';
       _detail = [
         if (_capture.isNativeAvailable) 'WASAPI',
         'hotkeys',
@@ -182,16 +198,13 @@ class _DictationPageState extends State<DictationPage> {
     });
   }
 
-  Future<void> _openSettings() async {
-    await Navigator.of(context).pushNamed(AppRoutes.settings);
+  Future<void> reloadAfterExternalEdit({bool showModelDownload = false}) async {
     if (!mounted) return;
-    await _applySettings();
+    await _applySettings(showModelDownload: showModelDownload);
   }
 
-  Future<void> _openModels() async {
-    await Navigator.of(context).pushNamed(AppRoutes.models);
-    if (!mounted) return;
-    await _applySettings(showModelDownload: true);
+  void _openSettings() {
+    ShellNavigation.maybeOf(context)?.goTo(ShellPage.settings);
   }
 
   Future<void> _onTrayAction(TrayAction action) async {
@@ -201,7 +214,7 @@ class _DictationPageState extends State<DictationPage> {
       case 'settings':
         await _tray.showApp();
         if (!mounted) return;
-        await _openSettings();
+        _openSettings();
       case 'quit':
         await _tray.quitApp();
       default:
@@ -329,6 +342,7 @@ class _DictationPageState extends State<DictationPage> {
         try {
           await _history.addFromResult(
             TranscriptResult(text: text, rawText: result.text),
+            retentionDays: _settings.historyRetentionDays,
           );
         } catch (_) {}
       }
@@ -400,80 +414,162 @@ class _DictationPageState extends State<DictationPage> {
     super.dispose();
   }
 
+  String get _phaseLabel {
+    if (_status.toLowerCase().contains('fail') ||
+        _status.toLowerCase().contains('missing')) {
+      return 'Error';
+    }
+    if (_recording) return 'Listening';
+    if (_busy) return 'Working';
+    if (_status.startsWith('Ready')) return 'Ready';
+    return 'Starting';
+  }
+
+  Color get _phaseColor {
+    switch (_phaseLabel) {
+      case 'Listening':
+        return FluidColors.danger;
+      case 'Working':
+        return FluidColors.warning;
+      case 'Error':
+        return FluidColors.danger;
+      case 'Ready':
+        return FluidColors.accent;
+      default:
+        return FluidColors.secondaryText;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final color = _recording
-        ? Theme.of(context).colorScheme.error
-        : Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final isError = _phaseLabel == 'Error';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('FluidVoice'),
-        actions: [
-          IconButton(
-            tooltip: 'Models',
-            onPressed: _busy ? null : _openModels,
-            icon: const Icon(Icons.model_training_outlined),
-          ),
-          IconButton(
-            tooltip: 'Settings',
-            onPressed: _busy ? null : _openSettings,
-            icon: const Icon(Icons.settings_outlined),
-          ),
-          IconButton(
-            tooltip: 'History',
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.history),
-            icon: const Icon(Icons.history),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FluidSpacing.xxl,
+        FluidSpacing.xxl,
+        FluidSpacing.xxl,
+        FluidSpacing.xl,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _status,
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Home', style: theme.textTheme.titleLarge),
+                    const SizedBox(height: FluidSpacing.sm),
+                    Text(
+                      isError
+                          ? _status
+                          : (_recording
+                              ? 'Listening — release $_hotkeyLabel to finish'
+                              : 'Hold $_hotkeyLabel to dictate'),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: isError
+                            ? FluidColors.danger
+                            : FluidColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Text(_detail),
-            const SizedBox(height: 24),
+              _StatusPill(label: _phaseLabel, color: _phaseColor),
+            ],
+          ),
+          if (_detail.isNotEmpty) ...[
+            const SizedBox(height: FluidSpacing.lg),
             Text(
-              _recording
-                  ? 'Listening…'
-                  : (_busy ? 'Working…' : 'Idle'),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text('Audio chunks this take: $_audioChunks'),
-            const SizedBox(height: 24),
-            Text(
-              'Transcript',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: Theme.of(context).dividerColor,
-                  ),
-                ),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: SelectableText(
-                    _transcript.isEmpty ? '—' : _transcript,
-                  ),
-                ),
+              _detail,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isError
+                    ? FluidColors.danger
+                    : FluidColors.tertiaryText,
               ),
             ),
           ],
-        ),
+          const SizedBox(height: FluidSpacing.xxl),
+          Row(
+            children: [
+              Text('Transcript', style: theme.textTheme.titleMedium),
+              const Spacer(),
+              if (_audioChunks > 0)
+                Text(
+                  '$_audioChunks chunks',
+                  style: theme.textTheme.labelSmall,
+                ),
+            ],
+          ),
+          const SizedBox(height: FluidSpacing.md),
+          Expanded(
+            child: FluidCard(
+              elevated: true,
+              padding: const EdgeInsets.all(FluidSpacing.xl),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  _transcript.isEmpty
+                      ? 'Your latest transcript will show up here.'
+                      : _transcript,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: _transcript.isEmpty
+                        ? FluidColors.tertiaryText
+                        : FluidColors.primaryText,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: FluidSpacing.md,
+        vertical: FluidSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(FluidRadii.pill),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: FluidSpacing.sm),
+          Text(
+            label,
+            style: fluidText(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

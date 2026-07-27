@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/theme/app_theme.dart';
+import '../../app/widgets/fluid_card.dart';
+import '../../app/widgets/fluid_section_header.dart';
 import '../../core/platform/whisper_model_store.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
@@ -56,7 +59,7 @@ class _ModelsPageState extends State<ModelsPage> {
       await _settings.save();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Model $modelId ready — return to dictation')),
+        SnackBar(content: Text('Model $modelId ready')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -75,58 +78,106 @@ class _ModelsPageState extends State<ModelsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Speech models')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              children: [
-                const ListTile(
-                  title: Text('whisper.cpp (speech_runtime)'),
-                  subtitle: Text('Models download on first use / selection'),
-                ),
-                if (_busy && _progressLabel != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(_progressLabel!),
-                  ),
-                RadioGroup<String>(
-                  groupValue: _selected,
-                  onChanged: _busy
-                      ? (_) {}
-                      : (id) {
-                          if (id != null) {
-                            unawaited(_select(id));
-                          }
-                        },
-                  child: Column(
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        FluidSpacing.xxl,
+        FluidSpacing.xxl,
+        FluidSpacing.xxl,
+        FluidSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Models', style: theme.textTheme.titleLarge),
+          const SizedBox(height: FluidSpacing.sm),
+          Text(
+            'whisper.cpp models download on first use or when selected.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: FluidColors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: FluidSpacing.xl),
+          if (_busy && _progressLabel != null) ...[
+            Text(
+              _progressLabel!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: FluidColors.accent,
+              ),
+            ),
+            const SizedBox(height: FluidSpacing.md),
+            const LinearProgressIndicator(),
+            const SizedBox(height: FluidSpacing.xl),
+          ],
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
                     children: [
-                      for (final id in WhisperModelStore.availableModelIds)
-                        RadioListTile<String>(
-                          value: id,
-                          title: Text(id),
-                          subtitle: Text(
-                            id == 'tiny.en'
-                                ? 'Fastest, English — default'
-                                : 'Higher quality, English — larger download',
+                      const FluidSectionHeader('Available'),
+                      FluidCard(
+                        padding: EdgeInsets.zero,
+                        child: RadioGroup<String>(
+                          groupValue: _selected,
+                          onChanged: _busy
+                              ? (_) {}
+                              : (id) {
+                                  if (id != null) {
+                                    unawaited(_select(id));
+                                  }
+                                },
+                          child: Column(
+                            children: [
+                              for (var i = 0;
+                                  i < WhisperModelStore.availableModelIds.length;
+                                  i++) ...[
+                                if (i > 0) const Divider(height: 1),
+                                RadioListTile<String>(
+                                  value:
+                                      WhisperModelStore.availableModelIds[i],
+                                  title: Text(
+                                    WhisperModelStore.availableModelIds[i],
+                                  ),
+                                  subtitle: Text(
+                                    WhisperModelStore.availableModelIds[i] ==
+                                            'tiny.en'
+                                        ? 'Fastest, English — default'
+                                        : 'Higher quality, English — larger download',
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: FluidSpacing.xl),
+                      const FluidSectionHeader(
+                        'Coming later',
+                        subtitle: 'Phase 3 under speech_runtime',
+                      ),
+                      const FluidCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: [
+                            ListTile(
+                              title: Text('ONNX / Parakeet-class'),
+                              subtitle: Text('Planned'),
+                              enabled: false,
+                            ),
+                            Divider(height: 1),
+                            ListTile(
+                              title: Text('Vosk'),
+                              subtitle: Text('Planned'),
+                              enabled: false,
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const Divider(),
-                const ListTile(
-                  title: Text('ONNX / Parakeet-class'),
-                  subtitle: Text('Planned — Phase 3 under speech_runtime'),
-                  enabled: false,
-                ),
-                const ListTile(
-                  title: Text('Vosk'),
-                  subtitle: Text('Planned — Phase 3 under speech_runtime'),
-                  enabled: false,
-                ),
-              ],
-            ),
+          ),
+        ],
+      ),
     );
   }
 }
