@@ -14,6 +14,7 @@ import '../../core/platform/win32_autostart.dart';
 import '../../core/platform/win32_credentials_store.dart';
 import '../../core/platform/win32_hotkey_source.dart';
 import '../../core/platform/window_chrome_channel.dart';
+import '../../core/services/dictation_hud_controller.dart';
 import '../../core/services/local_api_server.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
@@ -111,6 +112,8 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       await _windowChrome.setAlwaysOnTop(_settings.alwaysOnTop);
       await _windowChrome.setAcrylic(_settings.acrylicEnabled);
+      await _windowChrome.setMinimizeToTray(_settings.minimizeToTray);
+      DictationHudController.instance.setEnabled(_settings.floatingPillEnabled);
     } catch (_) {}
 
     final newKey = _apiKeyController.text.trim();
@@ -272,13 +275,43 @@ class _SettingsPageState extends State<SettingsPage> {
                       SwitchListTile(
                         title: const Text('Acrylic transparency'),
                         subtitle: const Text(
-                          'Blurred desktop shows through the window',
+                          'Blurred desktop shows through the shell (sidebar / gaps). Cards stay denser for readability.',
                         ),
                         value: _settings.acrylicEnabled,
                         onChanged: (v) async {
                           setState(() => _settings.acrylicEnabled = v);
                           try {
                             await _windowChrome.setAcrylic(v);
+                          } catch (_) {}
+                        },
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text('Minimize to tray'),
+                        subtitle: const Text(
+                          'Off: normal Windows minimize to the taskbar. On: hide to the system tray icon (pill can stay visible).',
+                        ),
+                        value: _settings.minimizeToTray,
+                        onChanged: (v) async {
+                          setState(() => _settings.minimizeToTray = v);
+                          try {
+                            await _windowChrome.setMinimizeToTray(v);
+                            await _settings.save();
+                          } catch (_) {}
+                        },
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text('Floating dictation pill'),
+                        subtitle: const Text(
+                          'Separate always-on-top WaveVisualizer pill + transcript. Use the pill ✕ to restore this window. The window Close button quits the app.',
+                        ),
+                        value: _settings.floatingPillEnabled,
+                        onChanged: (v) async {
+                          setState(() => _settings.floatingPillEnabled = v);
+                          DictationHudController.instance.setEnabled(v);
+                          try {
+                            await _settings.save();
                           } catch (_) {}
                         },
                       ),

@@ -66,6 +66,7 @@ void SpeechEngine::freeBackends() {
     m_parakeet = nullptr;
   }
   m_backend = Backend::None;
+  m_whisperMultilingual = false;
   m_encoderPath.clear();
   m_decoderPath.clear();
   m_joinerPath.clear();
@@ -117,6 +118,7 @@ int SpeechEngine::prepareWhisper(const std::string& modelPath) {
     setError("Failed to load Whisper model: " + modelPath);
     return -1;
   }
+  m_whisperMultilingual = whisper_is_multilingual(m_whisper) != 0;
   m_backend = Backend::Whisper;
   m_loadedPath = modelPath;
   m_lastError.clear();
@@ -206,7 +208,14 @@ int SpeechEngine::transcribeWhisper(const float* samples, int sampleCount,
   wparams.print_realtime = false;
   wparams.print_timestamps = false;
   wparams.translate = false;
-  wparams.language = "en";
+  // English-only ggml models require "en"; multilingual uses auto-detect.
+  if (m_whisperMultilingual) {
+    wparams.language = "auto";
+    wparams.detect_language = true;
+  } else {
+    wparams.language = "en";
+    wparams.detect_language = false;
+  }
   wparams.n_threads = threadCount();
   wparams.no_context = true;
   wparams.single_segment = false;

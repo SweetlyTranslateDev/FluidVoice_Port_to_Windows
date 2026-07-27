@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/platform/window_chrome_channel.dart';
+import '../../core/services/dictation_hud_controller.dart';
+import '../../core/services/floating_pill_bridge.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
 import '../../features/dictation/dictation_page.dart';
@@ -25,6 +28,8 @@ class _AppShellState extends State<AppShell> {
   final _dictationKey = GlobalKey<DictationPageState>();
   final _historyKey = GlobalKey<HistoryPageState>();
   final _settings = SettingsManager(JsonSettingsStore());
+  final _hud = DictationHudController.instance;
+  final _pillBridge = FloatingPillBridge();
   bool _sidebarCollapsed = false;
   bool _sidebarHidden = false;
 
@@ -39,12 +44,23 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _page = widget.initialPage;
-    unawaited(_loadSidebarPref());
+    unawaited(_loadShellPrefs());
   }
 
-  Future<void> _loadSidebarPref() async {
+  @override
+  void dispose() {
+    _pillBridge.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadShellPrefs() async {
     await _settings.load();
     if (!mounted) return;
+    _hud.setEnabled(_settings.floatingPillEnabled);
+    _pillBridge.start();
+    try {
+      await WindowChromeChannel().setMinimizeToTray(_settings.minimizeToTray);
+    } catch (_) {}
     setState(() => _sidebarCollapsed = _settings.sidebarCollapsed);
   }
 

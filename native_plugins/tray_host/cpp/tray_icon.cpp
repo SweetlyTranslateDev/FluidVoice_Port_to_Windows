@@ -4,10 +4,46 @@
 
 #include <cstring>
 
+// Match runner/resource.h — FluidVoice app icon.
+#ifndef IDI_APP_ICON
+#define IDI_APP_ICON 101
+#endif
+
 namespace {
 constexpr wchar_t kClassName[] = L"FluidVoiceTrayHost";
 constexpr UINT kTrayMsg = WM_APP + 40;
 constexpr UINT kCmdBase = 4000;
+
+HICON LoadTrayIcon() {
+  const int cx = GetSystemMetrics(SM_CXSMICON);
+  const int cy = GetSystemMetrics(SM_CYSMICON);
+  HINSTANCE inst = GetModuleHandleW(nullptr);
+
+  // Avoid variable names like `icon` / `small` — Windows headers macro those.
+  HICON loaded = static_cast<HICON>(LoadImageW(
+      inst, MAKEINTRESOURCEW(IDI_APP_ICON), IMAGE_ICON, cx, cy,
+      LR_DEFAULTCOLOR));
+  if (loaded != nullptr) {
+    return loaded;
+  }
+
+  // Fallback: extract small icon from this EXE.
+  wchar_t path[MAX_PATH] = {};
+  if (GetModuleFileNameW(inst, path, MAX_PATH) > 0) {
+    HICON largeIcon = nullptr;
+    HICON smallIcon = nullptr;
+    if (ExtractIconExW(path, 0, &largeIcon, &smallIcon, 1) > 0) {
+      if (largeIcon != nullptr) {
+        DestroyIcon(largeIcon);
+      }
+      if (smallIcon != nullptr) {
+        return smallIcon;
+      }
+    }
+  }
+
+  return LoadIconW(nullptr, IDI_APPLICATION);
+}
 
 void EnsureClass() {
   static bool registered = false;
@@ -47,13 +83,9 @@ bool TrayIcon::start(HWND appWindow) {
   m_nid.cbSize = sizeof(m_nid);
   m_nid.hWnd = m_hwnd;
   m_nid.uID = 1;
-  m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+  m_nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
   m_nid.uCallbackMessage = kTrayMsg;
-  // Use the runner's app icon (IDI_APP_ICON = 101), not the generic Windows icon.
-  m_nid.hIcon = LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(101));
-  if (m_nid.hIcon == nullptr) {
-    m_nid.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
-  }
+  m_nid.hIcon = LoadTrayIcon();
   wcsncpy_s(m_nid.szTip, m_tooltip.c_str(), _TRUNCATE);
 
   if (!Shell_NotifyIconW(NIM_ADD, &m_nid)) {

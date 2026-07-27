@@ -16,9 +16,9 @@ namespace {
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
 
-// Logical minimum size (DIP). Stops Flutter debug overflow stripes.
-constexpr int kMinWindowWidthDip = 900;
-constexpr int kMinWindowHeightDip = 560;
+// Logical minimum size (DIP). Half of the earlier 900x560 floor.
+constexpr int kMinWindowWidthDip = 450;
+constexpr int kMinWindowHeightDip = 280;
 
 constexpr const wchar_t kWindowClassName[] = L"FLUTTER_RUNNER_WIN32_WINDOW";
 

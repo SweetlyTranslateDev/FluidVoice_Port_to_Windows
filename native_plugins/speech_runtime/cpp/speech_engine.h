@@ -59,4 +59,5 @@ private:
   std::string m_lastError;
   std::mutex m_mutex;
   bool m_initialized = false;
+  bool m_whisperMultilingual = false;
 };

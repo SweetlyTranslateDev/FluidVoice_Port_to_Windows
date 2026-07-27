@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -21,6 +22,7 @@ import '../../core/platform/win32_overlay_host.dart';
 import '../../core/platform/win32_text_injector.dart';
 import '../../core/platform/win32_tray_host.dart';
 import '../../core/platform/window_chrome_channel.dart';
+import '../../core/services/dictation_hud_controller.dart';
 import '../../core/services/history_manager.dart';
 import '../../core/services/hotkey_state_machine.dart';
 import '../../core/services/local_api_server.dart';
@@ -93,6 +95,10 @@ class DictationPageState extends State<DictationPage> {
       _subs.add(_machine.actions.listen(_onAction));
       _subs.add(_capture.audioStream.listen((chunk) {
         _pcm.addAll(chunk.samples);
+        if (_useFloatingPill && _recording) {
+          DictationHudController.instance
+              .setAmplitude(_rmsAmplitude(chunk.samples));
+        }
         if (!mounted) return;
         setState(() => _audioChunks += 1);
       }));
@@ -185,12 +191,60 @@ class DictationPageState extends State<DictationPage> {
     try {
       await _windowChrome.setAlwaysOnTop(_settings.alwaysOnTop);
       await _windowChrome.setAcrylic(_settings.acrylicEnabled);
+      await _windowChrome.setMinimizeToTray(_settings.minimizeToTray);
+      DictationHudController.instance.setEnabled(_settings.floatingPillEnabled);
     } catch (_) {}
+  }
+
+  bool get _useFloatingPill =>
+      _settings.floatingPillEnabled || DictationHudController.instance.enabled;
+
+  /// Classic transient overlay only. Floating pill is a separate native window
+  /// owned by [FloatingPillBridge] — do not hide/show it from here.
+  Future<void> _syncOverlay({
+    required bool show,
+    String? transcript,
+  }) async {
+    if (_useFloatingPill) {
+      return;
+    }
+    try {
+      if (transcript != null) {
+        await _overlay.setTranscript(transcript);
+      }
+      if (show) {
+        await _overlay.setClickThrough(true);
+        await _overlay.setPillMode(false);
+        await _overlay.show();
+      } else {
+        await _overlay.hide();
+      }
+    } catch (_) {}
+  }
+
+  double _rmsAmplitude(List<double> samples) {
+    if (samples.isEmpty) return 0;
+    var sumSq = 0.0;
+    var peak = 0.0;
+    for (final s in samples) {
+      final a = s.abs();
+      if (a > peak) peak = a;
+      sumSq += s * s;
+    }
+    // Aggressive scale so quiet speech still moves the thin wave.
+    final rms = math.sqrt(sumSq / samples.length);
+    final raw = (rms * 42.0) + (peak * 8.0);
+    // Soft knee keeps loud speech from hard-clipping at 1.0 immediately.
+    return (1.0 - math.exp(-raw)).clamp(0.0, 1.0);
   }
 
   void _setReadyStatus() {
     final model = _speech.readyModelId ?? _activeModelId;
-    final backend = model.startsWith('parakeet') ? 'Parakeet ONNX' : 'Whisper';
+    final backend = model.startsWith('parakeet')
+        ? 'Parakeet ONNX'
+        : (WhisperModelStore.isMultilingualWhisper(model)
+            ? 'Whisper multilingual'
+            : 'Whisper');
     setState(() {
       _status = 'Ready — hold $_hotkeyLabel to dictate';
       _detail = [
@@ -245,11 +299,11 @@ class DictationPageState extends State<DictationPage> {
           _audioChunks = 0;
           _transcript = '';
         });
+        DictationHudController.instance.setPhase(DictationHudPhase.listening);
+        DictationHudController.instance.setTranscript('');
         try {
           await _tray.setStatus(AppTrayStatus.listening);
-          await _overlay.setTranscript('');
-          await _overlay.setClickThrough(true);
-          await _overlay.show();
+          await _syncOverlay(show: true, transcript: '');
         } catch (_) {}
         if (gen != _recordGeneration) return;
         if (_settings.pauseMediaWhileDictating) {
@@ -292,9 +346,11 @@ class DictationPageState extends State<DictationPage> {
           _status = 'Transcribing…';
           _detail = '$_activeModelId · ${_pcm.length} samples @ 16 kHz';
         });
+        DictationHudController.instance.setPhase(DictationHudPhase.processing);
+        DictationHudController.instance.setTranscript('');
         try {
           await _tray.setStatus(AppTrayStatus.processing);
-          await _overlay.setTranscript('Transcribing…');
+          await _syncOverlay(show: true, transcript: 'Transcribing…');
         } catch (_) {}
         await _finishTranscription();
       case HotkeyMachineAction.toggleRecording:
@@ -305,8 +361,9 @@ class DictationPageState extends State<DictationPage> {
   Future<void> _finishTranscription() async {
     try {
       if (!_speech.isNativeAvailable) {
+        DictationHudController.instance.setPhase(DictationHudPhase.idle);
         try {
-          await _overlay.hide();
+          await _syncOverlay(show: false);
           await _tray.setStatus(AppTrayStatus.idle);
         } catch (_) {}
         setState(() {
@@ -317,8 +374,9 @@ class DictationPageState extends State<DictationPage> {
         return;
       }
       if (_pcm.isEmpty) {
+        DictationHudController.instance.setPhase(DictationHudPhase.idle);
         try {
-          await _overlay.hide();
+          await _syncOverlay(show: false);
           await _tray.setStatus(AppTrayStatus.idle);
         } catch (_) {}
         setState(() {
@@ -397,18 +455,20 @@ class DictationPageState extends State<DictationPage> {
         } catch (_) {}
       }
 
+      DictationHudController.instance.setTranscript(text);
       try {
         if (text.isNotEmpty) {
-          await _overlay.setTranscript(text);
+          await _syncOverlay(show: true, transcript: text);
         }
         await Future<void>.delayed(const Duration(milliseconds: 900));
-        await _overlay.hide();
+        await _syncOverlay(show: false);
       } catch (_) {}
 
       try {
         await _tray.setStatus(AppTrayStatus.idle);
       } catch (_) {}
 
+      DictationHudController.instance.setPhase(DictationHudPhase.idle);
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -417,8 +477,10 @@ class DictationPageState extends State<DictationPage> {
         _detail = injectDetail;
       });
     } catch (e) {
+      DictationHudController.instance.setPhase(DictationHudPhase.error);
+      DictationHudController.instance.setTranscript('Transcribe failed');
       try {
-        await _overlay.hide();
+        await _syncOverlay(show: false);
         await _tray.setStatus(AppTrayStatus.error);
       } catch (_) {}
       if (!mounted) return;
@@ -427,6 +489,7 @@ class DictationPageState extends State<DictationPage> {
         _status = 'Ready — hold F8 to dictate';
         _detail = 'Transcribe failed: $e';
       });
+      DictationHudController.instance.setPhase(DictationHudPhase.idle);
       try {
         await _tray.setStatus(AppTrayStatus.idle);
       } catch (_) {}

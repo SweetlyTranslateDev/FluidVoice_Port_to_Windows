@@ -7,6 +7,7 @@
 #include "autostart_plugin.h"
 #include "credentials_plugin.h"
 #include "flutter/generated_plugin_registrant.h"
+#include "desktop_multi_window/desktop_multi_window_plugin.h"
 #include "overlay_plugin.h"
 #include "tray_plugin.h"
 #include "window_chrome_plugin.h"
@@ -32,6 +33,12 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  DesktopMultiWindowSetWindowCreatedCallback([](void* controller) {
+    auto* flutter_view_controller =
+        reinterpret_cast<flutter::FlutterViewController*>(controller);
+    auto* registry = flutter_view_controller->engine();
+    RegisterPlugins(registry);
+  });
   RegisterOverlayPlugin(
       flutter::PluginRegistrarManager::GetInstance()
           ->GetRegistrar<flutter::PluginRegistrarWindows>(
@@ -60,8 +67,8 @@ bool FlutterWindow::OnCreate() {
   TrayPluginSetAppWindow(GetHandle());
   WindowChromePluginSetAppWindow(GetHandle());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
-  // Close button hides to tray; Quit comes from the tray menu.
-  SetQuitOnClose(false);
+  // Close button quits the app; minimize behavior is controlled in settings.
+  SetQuitOnClose(true);
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
@@ -98,10 +105,6 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
-    case WM_CLOSE:
-      // Keep process alive in the tray unless quit was requested.
-      ShowWindow(hwnd, SW_HIDE);
-      return 0;
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

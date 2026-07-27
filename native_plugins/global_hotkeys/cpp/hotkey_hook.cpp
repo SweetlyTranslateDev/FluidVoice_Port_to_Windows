@@ -61,6 +61,7 @@ int HotkeyHook::start() {
   }
 
   m_running.store(true);
+  m_armed.store(false);
   m_thread = std::thread(&HotkeyHook::hookThreadMain, this);
 
   // Wait briefly for the hook thread to install.
@@ -140,33 +141,56 @@ LRESULT CALLBACK HotkeyHook::LowLevelProc(int code, WPARAM wParam,
                                           LPARAM lParam) {
   if (code == HC_ACTION && s_instance) {
     const auto* info = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
-    const int32_t vk = static_cast<int32_t>(info->vkCode);
-    const int32_t wantVk = s_instance->m_vk.load();
-    const int32_t wantMods = s_instance->m_modifiers.load();
+    // Injected events (e.g. our own text insert) must pass through.
+    if ((info->flags & LLKHF_INJECTED) == 0) {
+      const int32_t vk = static_cast<int32_t>(info->vkCode);
+      const int32_t wantVk = s_instance->m_vk.load();
+      const int32_t wantMods = s_instance->m_modifiers.load();
 
-    if (vk == wantVk) {
-      const bool isUp =
-          (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
-      const bool isDown =
-          (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
+      if (vk == wantVk && wantVk != 0) {
+        const bool isUp =
+            (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
+        const bool isDown =
+            (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
 
-      if (isDown || isUp) {
-        const int mods = currentModifiers();
-        // Required modifiers must be held (extras allowed), matching Dart.
-        if ((mods & wantMods) == wantMods) {
-          fv_hotkey_event event{};
-          event.type = isUp ? FV_HOTKEY_EVENT_UP : FV_HOTKEY_EVENT_DOWN;
-          event.vk_code = vk;
-          event.modifiers = mods;
-          s_instance->pushEvent(event);
-        } else if (isUp) {
-          // Always emit key-up for the configured key so PTT can release
-          // even if a modifier was released first.
-          fv_hotkey_event event{};
-          event.type = FV_HOTKEY_EVENT_UP;
-          event.vk_code = vk;
-          event.modifiers = mods;
-          s_instance->pushEvent(event);
+        if (isDown || isUp) {
+          const int mods = currentModifiers();
+          const bool modsOk = (mods & wantMods) == wantMods;
+          bool swallow = false;
+
+          if (isDown) {
+            if (modsOk) {
+              // Arm on first matching down; swallow all repeats too.
+              const bool alreadyArmed = s_instance->m_armed.load();
+              s_instance->m_armed.store(true);
+              if (!alreadyArmed) {
+                fv_hotkey_event event{};
+                event.type = FV_HOTKEY_EVENT_DOWN;
+                event.vk_code = vk;
+                event.modifiers = mods;
+                s_instance->pushEvent(event);
+              }
+              swallow = true;
+            } else if (s_instance->m_armed.load()) {
+              // Still holding trigger after a matching chord — block typing.
+              swallow = true;
+            }
+          } else if (isUp) {
+            if (s_instance->m_armed.load() || modsOk) {
+              fv_hotkey_event event{};
+              event.type = FV_HOTKEY_EVENT_UP;
+              event.vk_code = vk;
+              event.modifiers = mods;
+              s_instance->pushEvent(event);
+              s_instance->m_armed.store(false);
+              swallow = true;
+            }
+          }
+
+          if (swallow) {
+            // Block the key from reaching other apps (fixes Space insertion).
+            return 1;
+          }
         }
       }
     }

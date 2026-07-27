@@ -24,4 +24,11 @@ class Win32OverlayHost implements OverlayHost {
   @override
   Future<void> setPosition({required double x, required double y}) =>
       _channel.setPosition(x: x, y: y);
+
+  Future<void> setPillMode(bool enabled) => _channel.setPillMode(enabled);
+
+  Future<void> setPhase(String phase) => _channel.setPhase(phase);
+
+  Future<void> setAmplitude(double amplitude) =>
+      _channel.setAmplitude(amplitude);
 }

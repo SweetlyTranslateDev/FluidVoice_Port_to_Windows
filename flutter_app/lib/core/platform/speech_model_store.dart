@@ -14,23 +14,61 @@ class SpeechModelStore {
 
   static const defaultModelId = 'tiny.en';
 
+  static const _hfWhisper =
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main';
+
+  /// Built-in selectable ids (catalog downloads).
   static const availableModelIds = <String>[
     'tiny.en',
     'base.en',
+    'small.en',
+    'tiny',
+    'base',
+    'small',
+    'medium.en',
+    'medium',
     'parakeet-tdt-0.6b-v2-int8',
   ];
 
   static const _catalog = <String, _ModelSpec>{
     'tiny.en': _ModelSpec.file(
       fileName: 'ggml-tiny.en.bin',
-      url:
-          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin',
+      url: '$_hfWhisper/ggml-tiny.en.bin',
       minBytes: 1_000_000,
     ),
     'base.en': _ModelSpec.file(
       fileName: 'ggml-base.en.bin',
-      url:
-          'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin',
+      url: '$_hfWhisper/ggml-base.en.bin',
+      minBytes: 1_000_000,
+    ),
+    'small.en': _ModelSpec.file(
+      fileName: 'ggml-small.en.bin',
+      url: '$_hfWhisper/ggml-small.en.bin',
+      minBytes: 1_000_000,
+    ),
+    'tiny': _ModelSpec.file(
+      fileName: 'ggml-tiny.bin',
+      url: '$_hfWhisper/ggml-tiny.bin',
+      minBytes: 1_000_000,
+    ),
+    'base': _ModelSpec.file(
+      fileName: 'ggml-base.bin',
+      url: '$_hfWhisper/ggml-base.bin',
+      minBytes: 1_000_000,
+    ),
+    'small': _ModelSpec.file(
+      fileName: 'ggml-small.bin',
+      url: '$_hfWhisper/ggml-small.bin',
+      minBytes: 1_000_000,
+    ),
+    'medium.en': _ModelSpec.file(
+      fileName: 'ggml-medium.en.bin',
+      url: '$_hfWhisper/ggml-medium.en.bin',
+      minBytes: 1_000_000,
+    ),
+    'medium': _ModelSpec.file(
+      fileName: 'ggml-medium.bin',
+      url: '$_hfWhisper/ggml-medium.bin',
       minBytes: 1_000_000,
     ),
     'parakeet-tdt-0.6b-v2-int8': _ModelSpec.archive(
@@ -41,17 +79,46 @@ class SpeechModelStore {
     ),
   };
 
+  /// English-only Whisper ids end with `.en`; multilingual Whisper has no suffix.
+  static bool isMultilingualWhisper(String modelId) {
+    if (modelId.startsWith('parakeet')) return false;
+    if (modelId.endsWith('.en')) return false;
+    if (_catalog.containsKey(modelId) && !_catalog[modelId]!.isArchive) {
+      return true;
+    }
+    // Custom ggml without .en is treated as multilingual.
+    return !modelId.contains('.en');
+  }
+
   static String subtitleFor(String modelId) {
     switch (modelId) {
       case 'tiny.en':
         return 'Whisper — fastest English (ggml)';
       case 'base.en':
         return 'Whisper — higher quality English (ggml)';
+      case 'small.en':
+        return 'Whisper — best English quality in built-ins (ggml, larger)';
+      case 'tiny':
+        return 'Whisper multilingual — fastest, auto language detect (ggml)';
+      case 'base':
+        return 'Whisper multilingual — higher quality, auto language detect';
+      case 'small':
+        return 'Whisper multilingual — higher quality (ggml, larger download)';
+      case 'medium.en':
+        return 'Whisper English medium — high quality (ggml, ~1.5GB)';
+      case 'medium':
+        return 'Whisper multilingual medium — high quality (ggml, ~1.5GB)';
       case 'parakeet-tdt-0.6b-v2-int8':
         return 'Parakeet TDT 0.6B int8 — English ONNX (~400MB)';
       default:
-        return modelId;
+        return 'Custom Whisper ggml';
     }
+  }
+
+  static String? idFromGgmlFileName(String fileName) {
+    final base = p.basename(fileName);
+    if (!base.startsWith('ggml-') || !base.endsWith('.bin')) return null;
+    return base.substring('ggml-'.length, base.length - '.bin'.length);
   }
 
   Future<Directory> modelsDir() async {
@@ -63,6 +130,34 @@ class SpeechModelStore {
     return dir;
   }
 
+  /// Built-in catalog plus any `ggml-*.bin` already on disk (imported/custom).
+  Future<List<String>> listSelectableModelIds() async {
+    final ids = <String>{...availableModelIds};
+    final dir = await modelsDir();
+    await for (final entity in dir.list()) {
+      if (entity is! File) continue;
+      final id = idFromGgmlFileName(entity.path);
+      if (id != null && id.isNotEmpty) {
+        ids.add(id);
+      }
+    }
+    final sorted = ids.toList()
+      ..sort((a, b) {
+        final ai = availableModelIds.indexOf(a);
+        final bi = availableModelIds.indexOf(b);
+        if (ai >= 0 && bi >= 0) return ai.compareTo(bi);
+        if (ai >= 0) return -1;
+        if (bi >= 0) return 1;
+        return a.compareTo(b);
+      });
+    return sorted;
+  }
+
+  Future<List<String>> listCustomModelIds() async {
+    final all = await listSelectableModelIds();
+    return all.where((id) => !availableModelIds.contains(id)).toList();
+  }
+
   /// Ensure [modelId] is on disk; download if needed.
   /// Returns ggml file path or Parakeet model directory path.
   Future<String> ensureModel(
@@ -70,12 +165,19 @@ class SpeechModelStore {
     void Function(double progress)? onProgress,
     void Function(String status)? onStatus,
   }) async {
-    final spec = _catalog[modelId];
-    if (spec == null) {
-      throw ArgumentError('Unknown model id: $modelId');
+    final dir = await modelsDir();
+    final local = File(p.join(dir.path, 'ggml-$modelId.bin'));
+    if (await local.exists() && await local.length() > 500_000) {
+      return local.path;
     }
 
-    final dir = await modelsDir();
+    final spec = _catalog[modelId];
+    if (spec == null) {
+      throw ArgumentError(
+        'Unknown model id: $modelId. Import a ggml .bin or download from URL.',
+      );
+    }
+
     if (spec.isArchive) {
       return _ensureArchiveModel(
         dir,
@@ -86,6 +188,65 @@ class SpeechModelStore {
     }
     onStatus?.call('Downloading $modelId…');
     return _ensureFileModel(dir, spec, modelId, onProgress: onProgress);
+  }
+
+  /// Copy a local Whisper ggml `.bin` into the models folder and return its id.
+  Future<String> importLocalGgml(String sourcePath) async {
+    final source = File(sourcePath);
+    if (!await source.exists()) {
+      throw ArgumentError('File not found: $sourcePath');
+    }
+    var name = p.basename(sourcePath);
+    if (!name.toLowerCase().endsWith('.bin')) {
+      throw ArgumentError('Expected a Whisper ggml .bin file');
+    }
+    if (!name.startsWith('ggml-')) {
+      name = 'ggml-$name';
+    }
+    final id = idFromGgmlFileName(name);
+    if (id == null || id.isEmpty) {
+      throw ArgumentError('Could not derive model id from $name');
+    }
+    final dest = File(p.join((await modelsDir()).path, name));
+    if (p.normalize(source.absolute.path) != p.normalize(dest.absolute.path)) {
+      await source.copy(dest.path);
+    }
+    return id;
+  }
+
+  /// Download a Whisper ggml from a direct URL (e.g. Hugging Face resolve link).
+  Future<String> downloadFromUrl(
+    String url, {
+    String? modelId,
+    void Function(double progress)? onProgress,
+    void Function(String status)? onStatus,
+  }) async {
+    final uri = Uri.parse(url.trim());
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      throw ArgumentError('URL must be http(s)');
+    }
+
+    var fileName = p.basename(uri.path);
+    if (fileName.isEmpty || !fileName.toLowerCase().endsWith('.bin')) {
+      final id = (modelId == null || modelId.isEmpty) ? 'custom' : modelId;
+      fileName = id.startsWith('ggml-') ? '$id.bin' : 'ggml-$id.bin';
+    }
+    if (!fileName.startsWith('ggml-')) {
+      fileName = 'ggml-$fileName';
+    }
+    final id = modelId?.trim().isNotEmpty == true
+        ? modelId!.trim()
+        : idFromGgmlFileName(fileName)!;
+    final destName = 'ggml-$id.bin';
+    final dest = File(p.join((await modelsDir()).path, destName));
+
+    onStatus?.call('Downloading $id…');
+    await _downloadToFile(uri, dest, onProgress: onProgress);
+    if (await dest.length() < 500_000) {
+      await dest.delete();
+      throw StateError('Downloaded file looks too small to be a ggml model');
+    }
+    return id;
   }
 
   Future<String> _ensureFileModel(
@@ -130,7 +291,6 @@ class SpeechModelStore {
       onProgress(1.0);
     }
 
-    // Heavy bz2/tar work off the UI isolate.
     onStatus?.call('Extracting ${spec.dirName}…');
     onProgress?.call(1.0);
     await Isolate.run(

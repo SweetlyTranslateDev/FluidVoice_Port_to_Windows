@@ -51,6 +51,8 @@ private:
 
   std::atomic<int32_t> m_vk{0};
   std::atomic<int32_t> m_modifiers{0};
+  /** True while the configured trigger key is held after a matching chord. */
+  std::atomic<bool> m_armed{false};
 
   std::string m_lastError;
   bool m_initialized = false;

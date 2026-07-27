@@ -54,7 +54,7 @@ class OnboardingPage extends StatelessWidget {
                     'Optional: AI enhance needs an API key (Credential Manager).',
                   ),
                   const _Step(
-                    'Closing the window hides to the tray — Quit from the tray menu.',
+                    'Close quits the app. Optional: minimize to the system tray from Settings.',
                   ),
                   const SizedBox(height: FluidSpacing.xxl),
                   Align(

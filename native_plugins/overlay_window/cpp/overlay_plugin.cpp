@@ -107,6 +107,53 @@ public:
       result->Success();
       return;
     }
+    if (method == "setPillMode") {
+      bool enabled = false;
+      if (const auto* args =
+              std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("enabled"));
+        if (it != args->end()) {
+          if (const auto* b = std::get_if<bool>(&it->second)) {
+            enabled = *b;
+          }
+        }
+      }
+      overlay_.setPillMode(enabled);
+      result->Success();
+      return;
+    }
+    if (method == "setPhase") {
+      std::string phase = "idle";
+      if (const auto* args =
+              std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("phase"));
+        if (it != args->end()) {
+          if (const auto* s = std::get_if<std::string>(&it->second)) {
+            phase = *s;
+          }
+        }
+      }
+      overlay_.setPhase(phase);
+      result->Success();
+      return;
+    }
+    if (method == "setAmplitude") {
+      double amplitude = 0;
+      if (const auto* args =
+              std::get_if<flutter::EncodableMap>(call.arguments())) {
+        auto it = args->find(flutter::EncodableValue("amplitude"));
+        if (it != args->end()) {
+          if (const auto* d = std::get_if<double>(&it->second)) {
+            amplitude = *d;
+          } else if (const auto* i = std::get_if<int32_t>(&it->second)) {
+            amplitude = *i;
+          }
+        }
+      }
+      overlay_.setAmplitude(amplitude);
+      result->Success();
+      return;
+    }
     result->NotImplemented();
   }
 

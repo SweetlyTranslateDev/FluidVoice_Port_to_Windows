@@ -4,16 +4,34 @@ import 'package:flutter/material.dart';
 /// Flutter Windows can resolve that to SegoeIcons and drop lowercase glyphs.
 const String kFluidFontFamily = 'FluidUI';
 
+/// Fallbacks for multilingual transcripts (bundled Noto + Windows UI fonts).
+const List<String> kFluidFontFallbacks = <String>[
+  'NotoSans',
+  'NotoSansArabic',
+  'NotoSansDevanagari',
+  'Microsoft YaHei UI',
+  'Microsoft YaHei',
+  'Yu Gothic UI',
+  'Malgun Gothic',
+  'Nirmala UI',
+  'Leelawadee UI',
+  'Ebrima',
+  'Gadugi',
+  'Segoe UI Symbol',
+  'Segoe UI Emoji',
+];
+
 /// macOS AppTheme-aligned tokens for the Windows Flutter shell.
 abstract final class FluidColors {
   static const accent = Color(0xFF3AC8C6);
-  // Keep surfaces translucent so acrylic/mica can show through Flutter.
+  // Low-alpha shell so accent acrylic can show the desktop through Flutter.
+  // Cards stay denser for readability.
   static const windowBackground = Color(0x00000000);
-  static const contentBackground = Color(0x99121212);
-  static const sidebarBackground = Color(0xB30F0F0F);
-  static const cardBackground = Color(0xCC1A1A1A);
-  static const elevatedCardBackground = Color(0xD91C1C1C);
-  static const toolbarBackground = Color(0xFF0F0F0F);
+  static const contentBackground = Color(0x59101010); // ~35%
+  static const sidebarBackground = Color(0x66101010); // ~40%
+  static const cardBackground = Color(0xB31A1A1A); // ~70%
+  static const elevatedCardBackground = Color(0xCC1C1C1C);
+  static const toolbarBackground = Color(0x99101010);
   static const cardBorder = Color(0x1AFFFFFF); // white @ 10%
   static const separator = Color(0x29FFFFFF); // white @ 16%
   static const primaryText = Color(0xFFF2F2F2);
@@ -50,6 +68,7 @@ TextStyle fluidText({
 }) {
   return TextStyle(
     fontFamily: kFluidFontFamily,
+    fontFamilyFallback: kFluidFontFallbacks,
     fontSize: fontSize,
     fontWeight: fontWeight,
     color: color,

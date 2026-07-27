@@ -35,6 +35,10 @@ class SettingsManager {
   bool sidebarCollapsed = false;
   bool alwaysOnTop = false;
   bool acrylicEnabled = true;
+  /// Floating WaveVisualizer pill + transcript (off by default).
+  bool floatingPillEnabled = false;
+  /// When true, minimize hides to the system tray; when false, normal taskbar minimize.
+  bool minimizeToTray = false;
 
   Future<void> load() async {
     final data = await _store.readAll();
@@ -57,6 +61,8 @@ class SettingsManager {
     sidebarCollapsed = data['sidebarCollapsed'] == 'true';
     alwaysOnTop = data['alwaysOnTop'] == 'true';
     acrylicEnabled = data['acrylicEnabled'] != 'false';
+    floatingPillEnabled = data['floatingPillEnabled'] == 'true';
+    minimizeToTray = data['minimizeToTray'] == 'true';
     historyRetentionDays = int.tryParse(data['historyRetentionDays'] ?? '') ??
         30;
     if (!HistoryRetention.options.contains(historyRetentionDays) &&
@@ -107,6 +113,8 @@ class SettingsManager {
       'sidebarCollapsed': sidebarCollapsed.toString(),
       'alwaysOnTop': alwaysOnTop.toString(),
       'acrylicEnabled': acrylicEnabled.toString(),
+      'floatingPillEnabled': floatingPillEnabled.toString(),
+      'minimizeToTray': minimizeToTray.toString(),
       'hotkeyKeyCode': shortcut?.keyCode.toString() ?? '',
       'hotkeyModifiers':
           encodeHotkeyModifiers(shortcut?.modifiers ?? {}).toString(),

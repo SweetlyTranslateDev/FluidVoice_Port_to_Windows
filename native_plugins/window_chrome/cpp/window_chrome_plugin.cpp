@@ -2,9 +2,11 @@
 
 #include <dwmapi.h>
 #include <flutter/method_channel.h>
+#include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
 #include <memory>
+#include <optional>
 
 #pragma comment(lib, "dwmapi.lib")
 
@@ -21,12 +23,6 @@ namespace {
 #endif
 #ifndef DWMSBT_NONE
 #define DWMSBT_NONE 1
-#endif
-#ifndef DWMSBT_MAINWINDOW
-#define DWMSBT_MAINWINDOW 2
-#endif
-#ifndef DWMSBT_TRANSIENTWINDOW
-#define DWMSBT_TRANSIENTWINDOW 3
 #endif
 #ifndef DWMWA_MICA_EFFECT
 #define DWMWA_MICA_EFFECT 1029
@@ -61,11 +57,11 @@ typedef struct _ACCENT_POLICY {
 typedef BOOL(WINAPI* SetWindowCompositionAttributeFn)(
     HWND, WINDOWCOMPOSITIONATTRIBDATA*);
 
-typedef LONG NTSTATUS;
-typedef NTSTATUS(WINAPI* RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
-
 HWND g_app_window = nullptr;
 SetWindowCompositionAttributeFn g_set_window_composition_attribute = nullptr;
+bool g_acrylic_enabled = false;
+DWORD g_acrylic_tint_abgr = 0x99101010;
+bool g_minimize_to_tray = false;
 
 void EnsureCompositionApi() {
   if (g_set_window_composition_attribute != nullptr) {
@@ -78,24 +74,6 @@ void EnsureCompositionApi() {
   g_set_window_composition_attribute =
       reinterpret_cast<SetWindowCompositionAttributeFn>(
           ::GetProcAddress(user32, "SetWindowCompositionAttribute"));
-}
-
-DWORD GetWindowsBuildNumber() {
-  HMODULE ntdll = ::GetModuleHandleW(L"ntdll.dll");
-  if (ntdll == nullptr) {
-    return 0;
-  }
-  auto rtl_get_version = reinterpret_cast<RtlGetVersionPtr>(
-      ::GetProcAddress(ntdll, "RtlGetVersion"));
-  if (rtl_get_version == nullptr) {
-    return 0;
-  }
-  RTL_OSVERSIONINFOW info = {};
-  info.dwOSVersionInfoSize = sizeof(info);
-  if (rtl_get_version(&info) != 0) {
-    return 0;
-  }
-  return info.dwBuildNumber;
 }
 
 HWND ResolveAppWindow() {
@@ -116,7 +94,8 @@ bool ReadBool(const flutter::EncodableMap& args, const char* key, bool fallback)
   return fallback;
 }
 
-int32_t ReadInt(const flutter::EncodableMap& args, const char* key, int32_t fallback) {
+int32_t ReadInt(const flutter::EncodableMap& args, const char* key,
+                int32_t fallback) {
   auto it = args.find(flutter::EncodableValue(key));
   if (it == args.end()) {
     return fallback;
@@ -141,6 +120,13 @@ void SetAccentDisabled(HWND hwnd) {
   g_set_window_composition_attribute(hwnd, &data);
 }
 
+void ClearSystemBackdrop(HWND hwnd) {
+  INT none = DWMSBT_NONE;
+  ::DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &none, sizeof(none));
+  BOOL mica = FALSE;
+  ::DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, &mica, sizeof(mica));
+}
+
 void ApplyAlwaysOnTop(bool enabled) {
   HWND hwnd = ResolveAppWindow();
   if (hwnd == nullptr) {
@@ -151,27 +137,28 @@ void ApplyAlwaysOnTop(bool enabled) {
 }
 
 // Tint is Windows ABGR (A << 24 | B << 16 | G << 8 | R).
+//
+// Uses accent acrylic/blur on the whole window so translucent Flutter pixels
+// can show the desktop. Avoids Win11 SYSTEMBACKDROP acrylic, which only tints
+// the chrome (blue when focused, nearly solid when inactive) while the Flutter
+// surface stays opaque.
 void ApplyAcrylic(bool enabled, DWORD tint_abgr) {
   HWND hwnd = ResolveAppWindow();
   if (hwnd == nullptr) {
     return;
   }
 
-  EnsureCompositionApi();
-  const DWORD build = GetWindowsBuildNumber();
+  g_acrylic_enabled = enabled;
+  g_acrylic_tint_abgr = tint_abgr;
 
-  // Reset composition so style switches apply cleanly.
-  SetAccentDisabled(hwnd);
+  EnsureCompositionApi();
+  ClearSystemBackdrop(hwnd);
 
   if (!enabled) {
-    BOOL dark = FALSE;
-    BOOL mica = FALSE;
-    INT none = DWMSBT_NONE;
+    SetAccentDisabled(hwnd);
     MARGINS margins = {0, 0, 1, 0};
     ::DwmExtendFrameIntoClientArea(hwnd, &margins);
-    ::DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &none,
-                            sizeof(none));
-    ::DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, &mica, sizeof(mica));
+    BOOL dark = TRUE;
     ::DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
                             sizeof(dark));
     return;
@@ -181,38 +168,43 @@ void ApplyAcrylic(bool enabled, DWORD tint_abgr) {
   ::DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark,
                           sizeof(dark));
 
-  // Win11 22523+: official acrylic/mica system backdrop.
-  if (build >= 22523) {
-    MARGINS margins = {-1};
-    ::DwmExtendFrameIntoClientArea(hwnd, &margins);
-    COLORREF caption_none = 0xFFFFFFFE;
-    ::DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &caption_none,
-                            sizeof(caption_none));
-    INT effect = DWMSBT_TRANSIENTWINDOW;  // acrylic
-    ::DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &effect,
-                            sizeof(effect));
-  } else if (build >= 22000) {
-    // Early Win11: mica attribute + sheet-of-glass margins.
-    BOOL enable = TRUE;
-    MARGINS margins = {-1};
-    ::DwmExtendFrameIntoClientArea(hwnd, &margins);
-    ::DwmSetWindowAttribute(hwnd, DWMWA_MICA_EFFECT, &enable, sizeof(enable));
+  // Sheet-of-glass: lets DWM composite under translucent Flutter content.
+  MARGINS margins = {-1};
+  ::DwmExtendFrameIntoClientArea(hwnd, &margins);
+
+  if (g_set_window_composition_attribute == nullptr) {
+    return;
   }
 
-  // Accent acrylic works on Win10 1803+ and also helps Flutter show blur
-  // through translucent surfaces on Win11.
-  if (g_set_window_composition_attribute != nullptr) {
-    ACCENT_POLICY accent = {ACCENT_ENABLE_ACRYLICBLURBEHIND, 2, tint_abgr, 0};
-    WINDOWCOMPOSITIONATTRIBDATA data = {WCA_ACCENT_POLICY, &accent,
-                                        sizeof(accent)};
-    g_set_window_composition_attribute(hwnd, &data);
+  // Acrylic blurbehind (Win10 1803+ / Win11). Tint alpha controls wash strength.
+  ACCENT_POLICY accent = {ACCENT_ENABLE_ACRYLICBLURBEHIND, 2, tint_abgr, 0};
+  WINDOWCOMPOSITIONATTRIBDATA data = {WCA_ACCENT_POLICY, &accent,
+                                      sizeof(accent)};
+  g_set_window_composition_attribute(hwnd, &data);
+}
+
+void ReapplyAcrylicIfNeeded() {
+  if (!g_acrylic_enabled) {
+    return;
   }
+  ApplyAcrylic(true, g_acrylic_tint_abgr);
 }
 
 class WindowChromePlugin : public flutter::Plugin {
  public:
   explicit WindowChromePlugin(flutter::PluginRegistrarWindows* registrar)
-      : registrar_(registrar) {}
+      : registrar_(registrar) {
+    window_proc_id_ = registrar_->RegisterTopLevelWindowProcDelegate(
+        [this](HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+          return HandleWindowProc(hwnd, message, wparam, lparam);
+        });
+  }
+
+  ~WindowChromePlugin() override {
+    if (registrar_ != nullptr && window_proc_id_ != 0) {
+      registrar_->UnregisterTopLevelWindowProcDelegate(window_proc_id_);
+    }
+  }
 
   void AttachChannel(
       std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>>
@@ -247,15 +239,15 @@ class WindowChromePlugin : public flutter::Plugin {
 
     if (call.method_name() == "setAcrylic") {
       bool enabled = false;
-      // Default tint: dark translucent (A=0xCC, BGR ≈ #171717)
-      DWORD tint = 0xCC171717;
+      // Default: dark wash, ~60% alpha so desktop blur remains visible.
+      DWORD tint = 0x99101010;
       if (const auto* args =
               std::get_if<flutter::EncodableMap>(call.arguments())) {
         enabled = ReadBool(*args, "enabled", false);
-        const int a = ReadInt(*args, "a", 0xCC);
-        const int r = ReadInt(*args, "r", 0x17);
-        const int g = ReadInt(*args, "g", 0x17);
-        const int b = ReadInt(*args, "b", 0x17);
+        const int a = ReadInt(*args, "a", 0x99);
+        const int r = ReadInt(*args, "r", 0x10);
+        const int g = ReadInt(*args, "g", 0x10);
+        const int b = ReadInt(*args, "b", 0x10);
         tint = (static_cast<DWORD>(a & 0xFF) << 24) |
                (static_cast<DWORD>(b & 0xFF) << 16) |
                (static_cast<DWORD>(g & 0xFF) << 8) |
@@ -266,11 +258,43 @@ class WindowChromePlugin : public flutter::Plugin {
       return;
     }
 
+    if (call.method_name() == "setMinimizeToTray") {
+      bool enabled = false;
+      if (const auto* args =
+              std::get_if<flutter::EncodableMap>(call.arguments())) {
+        enabled = ReadBool(*args, "enabled", false);
+      }
+      g_minimize_to_tray = enabled;
+      result->Success(flutter::EncodableValue(true));
+      return;
+    }
+
     result->NotImplemented();
   }
 
  private:
+  std::optional<LRESULT> HandleWindowProc(HWND hwnd, UINT message,
+                                          WPARAM wparam, LPARAM /*lparam*/) {
+    if (message == WM_SYSCOMMAND &&
+        (wparam & 0xFFF0) == SC_MINIMIZE && g_minimize_to_tray) {
+      // Hide to tray instead of taskbar minimize.
+      ::ShowWindow(hwnd, SW_HIDE);
+      return 0;
+    }
+    if (message == WM_ACTIVATE) {
+      // Re-apply after focus changes; Windows often drops accent blur.
+      if (LOWORD(wparam) != WA_INACTIVE) {
+        ReapplyAcrylicIfNeeded();
+      }
+    } else if (message == WM_DWMCOMPOSITIONCHANGED ||
+               message == WM_DWMCOLORIZATIONCOLORCHANGED) {
+      ReapplyAcrylicIfNeeded();
+    }
+    return std::nullopt;
+  }
+
   flutter::PluginRegistrarWindows* registrar_ = nullptr;
+  int window_proc_id_ = 0;
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
 };
 

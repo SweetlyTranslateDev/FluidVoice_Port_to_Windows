@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-/// MethodChannel for the native always-on-top transcript overlay.
+/// MethodChannel for the native always-on-top overlay / floating pill window.
 ///
 /// Audio must never use this channel.
 class OverlayWindowChannel {
@@ -22,4 +22,14 @@ class OverlayWindowChannel {
 
   Future<void> setPosition({required double x, required double y}) =>
       _channel.invokeMethod<void>('setPosition', {'x': x, 'y': y});
+
+  /// Persistent separate pill+transcript HUD (independent of main window).
+  Future<void> setPillMode(bool enabled) =>
+      _channel.invokeMethod<void>('setPillMode', {'enabled': enabled});
+
+  Future<void> setPhase(String phase) =>
+      _channel.invokeMethod<void>('setPhase', {'phase': phase});
+
+  Future<void> setAmplitude(double amplitude) =>
+      _channel.invokeMethod<void>('setAmplitude', {'amplitude': amplitude});
 }
