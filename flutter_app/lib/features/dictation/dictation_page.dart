@@ -28,7 +28,7 @@ import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_history_store.dart';
 import '../../core/storage/json_settings_store.dart';
 
-/// Dictation shell: F8 PTT → WASAPI → speech_runtime (whisper.cpp).
+/// Dictation shell: PTT hotkey → WASAPI → speech_runtime (Whisper / Parakeet).
 class DictationPage extends StatefulWidget {
   const DictationPage({super.key});
 
@@ -60,6 +60,9 @@ class DictationPageState extends State<DictationPage> {
   bool _recording = false;
   bool _busy = false;
   int _audioChunks = 0;
+  /// Bumped on stop so an in-flight start cannot leave the mic open.
+  int _recordGeneration = 0;
+  String _activeModelId = WhisperModelStore.defaultModelId;
 
   @override
   void initState() {
@@ -141,14 +144,18 @@ class DictationPageState extends State<DictationPage> {
 
     final modelId =
         _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
+    _activeModelId = modelId;
     if (_speech.isNativeAvailable) {
       if (showModelDownload && mounted) {
         setState(() {
-          _status = 'Downloading speech model…';
-          _detail = '$modelId (cached after first run)';
+          _status = 'Loading $modelId…';
+          _detail = modelId.startsWith('parakeet')
+              ? 'Parakeet ONNX — first load can take a minute'
+              : 'Whisper ggml — downloading if needed';
         });
       }
       await _speech.prepare(modelId: modelId);
+      _activeModelId = _speech.readyModelId ?? modelId;
     }
 
     if (_settings.localApiEnabled) {
@@ -182,19 +189,22 @@ class DictationPageState extends State<DictationPage> {
   }
 
   void _setReadyStatus() {
+    final model = _speech.readyModelId ?? _activeModelId;
+    final backend = model.startsWith('parakeet') ? 'Parakeet ONNX' : 'Whisper';
     setState(() {
       _status = 'Ready — hold $_hotkeyLabel to dictate';
       _detail = [
+        'model:$model',
+        'backend:$backend',
         if (_capture.isNativeAvailable) 'WASAPI',
         'hotkeys',
-        if (_speech.isNativeAvailable) 'whisper',
         if (_injector.isNativeAvailable) 'inject',
         'tray',
         if (_localApi != null) 'api:${LocalApiServer.defaultPort}',
         if (_settings.outputMode != DictationOutputMode.raw)
           'mode:${_settings.outputMode.name}',
         if (_settings.pauseMediaWhileDictating) 'media-pause',
-      ].join(' + ');
+      ].join(' · ');
     });
   }
 
@@ -226,10 +236,12 @@ class DictationPageState extends State<DictationPage> {
     switch (action) {
       case HotkeyMachineAction.startRecording:
         if (_busy) return;
+        final gen = ++_recordGeneration;
         _pcm.clear();
         setState(() {
           _recording = true;
-          _status = 'Recording (F8 held)';
+          _status = 'Listening — hold $_hotkeyLabel';
+          _detail = 'model:$_activeModelId';
           _audioChunks = 0;
           _transcript = '';
         });
@@ -239,11 +251,13 @@ class DictationPageState extends State<DictationPage> {
           await _overlay.setClickThrough(true);
           await _overlay.show();
         } catch (_) {}
+        if (gen != _recordGeneration) return;
         if (_settings.pauseMediaWhileDictating) {
           try {
             await _injector.mediaPlayPause();
           } catch (_) {}
         }
+        if (gen != _recordGeneration) return;
         if (_capture.isNativeAvailable) {
           try {
             await _capture.start();
@@ -252,9 +266,19 @@ class DictationPageState extends State<DictationPage> {
             setState(() => _detail = 'Mic start failed: $e');
           }
         }
+        // Tap was so short stop already ran — do not leave the mic open.
+        if (gen != _recordGeneration && _capture.isNativeAvailable) {
+          try {
+            await _capture.stop();
+          } catch (_) {}
+        }
       case HotkeyMachineAction.stopRecording:
+        // Invalidate any in-flight start before awaiting I/O.
+        _recordGeneration++;
         if (_capture.isNativeAvailable) {
-          await _capture.stop();
+          try {
+            await _capture.stop();
+          } catch (_) {}
         }
         if (_settings.pauseMediaWhileDictating) {
           try {
@@ -266,7 +290,7 @@ class DictationPageState extends State<DictationPage> {
           _recording = false;
           _busy = true;
           _status = 'Transcribing…';
-          _detail = '${_pcm.length} samples @ 16 kHz';
+          _detail = '$_activeModelId · ${_pcm.length} samples @ 16 kHz';
         });
         try {
           await _tray.setStatus(AppTrayStatus.processing);
@@ -305,6 +329,32 @@ class DictationPageState extends State<DictationPage> {
         return;
       }
 
+      // Reload selection in case Models page changed it while we were open.
+      await _settings.load();
+      final modelId =
+          _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
+      _activeModelId = modelId;
+      if (_speech.readyModelId != modelId) {
+        if (mounted) {
+          setState(() {
+            _status = 'Loading $modelId…';
+            _detail = modelId.startsWith('parakeet')
+                ? 'Parakeet ONNX — first load can take a minute'
+                : 'Switching Whisper model…';
+          });
+        }
+        await _speech.prepare(modelId: modelId);
+        _activeModelId = _speech.readyModelId ?? modelId;
+      }
+
+      if (mounted) {
+        setState(() {
+          _status = 'Transcribing ($_activeModelId)…';
+          _detail = _activeModelId.startsWith('parakeet')
+              ? 'Parakeet ONNX'
+              : 'Whisper ggml';
+        });
+      }
       final result = await _speech.transcribe(
         AudioBuffer(samples: List<double>.from(_pcm), sampleRate: 16000, channels: 1),
       );

@@ -261,18 +261,26 @@ class _SettingsPageState extends State<SettingsPage> {
                           'Keep FluidVoice above other windows',
                         ),
                         value: _settings.alwaysOnTop,
-                        onChanged: (v) =>
-                            setState(() => _settings.alwaysOnTop = v),
+                        onChanged: (v) async {
+                          setState(() => _settings.alwaysOnTop = v);
+                          try {
+                            await _windowChrome.setAlwaysOnTop(v);
+                          } catch (_) {}
+                        },
                       ),
                       const Divider(height: 1),
                       SwitchListTile(
                         title: const Text('Acrylic transparency'),
                         subtitle: const Text(
-                          'Windows translucent backdrop behind the UI',
+                          'Blurred desktop shows through the window',
                         ),
                         value: _settings.acrylicEnabled,
-                        onChanged: (v) =>
-                            setState(() => _settings.acrylicEnabled = v),
+                        onChanged: (v) async {
+                          setState(() => _settings.acrylicEnabled = v);
+                          try {
+                            await _windowChrome.setAcrylic(v);
+                          } catch (_) {}
+                        },
                       ),
                     ],
                   ),

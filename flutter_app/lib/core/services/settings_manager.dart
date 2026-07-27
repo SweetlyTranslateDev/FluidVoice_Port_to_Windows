@@ -43,7 +43,13 @@ class SettingsManager {
       orElse: () => HotkeyActivationMode.pushToTalk,
     );
     selectedModelId = data['selectedModelId'];
+    if (selectedModelId != null && selectedModelId!.trim().isEmpty) {
+      selectedModelId = null;
+    }
     selectedMicId = data['selectedMicId'];
+    if (selectedMicId != null && selectedMicId!.trim().isEmpty) {
+      selectedMicId = null;
+    }
     aiEnhancementEnabled = data['aiEnhancementEnabled'] == 'true';
     aiBaseUrl = data['aiBaseUrl'];
     localApiEnabled = data['localApiEnabled'] == 'true';

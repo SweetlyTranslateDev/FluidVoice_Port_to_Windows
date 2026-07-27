@@ -7,12 +7,12 @@ const String kFluidFontFamily = 'FluidUI';
 /// macOS AppTheme-aligned tokens for the Windows Flutter shell.
 abstract final class FluidColors {
   static const accent = Color(0xFF3AC8C6);
-  // Slightly translucent so Win11 acrylic/mica can show through.
-  static const windowBackground = Color(0xE0121212);
-  static const contentBackground = Color(0xE6171717);
-  static const sidebarBackground = Color(0xE00F0F0F);
-  static const cardBackground = Color(0xF0141414);
-  static const elevatedCardBackground = Color(0xF01C1C1C);
+  // Keep surfaces translucent so acrylic/mica can show through Flutter.
+  static const windowBackground = Color(0x00000000);
+  static const contentBackground = Color(0x99121212);
+  static const sidebarBackground = Color(0xB30F0F0F);
+  static const cardBackground = Color(0xCC1A1A1A);
+  static const elevatedCardBackground = Color(0xD91C1C1C);
   static const toolbarBackground = Color(0xFF0F0F0F);
   static const cardBorder = Color(0x1AFFFFFF); // white @ 10%
   static const separator = Color(0x29FFFFFF); // white @ 16%
@@ -135,8 +135,8 @@ ThemeData buildFluidVoiceTheme() {
     useMaterial3: true,
     brightness: Brightness.dark,
     colorScheme: scheme,
-    scaffoldBackgroundColor: FluidColors.contentBackground,
-    canvasColor: FluidColors.contentBackground,
+    scaffoldBackgroundColor: Colors.transparent,
+    canvasColor: Colors.transparent,
     dividerColor: FluidColors.separator,
     visualDensity: VisualDensity.adaptivePlatformDensity,
     fontFamily: kFluidFontFamily,

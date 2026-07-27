@@ -42,16 +42,21 @@ class _ModelsPageState extends State<ModelsPage> {
   Future<void> _select(String modelId) async {
     setState(() {
       _busy = true;
-      _progressLabel = 'Downloading $modelId…';
+      _progressLabel = 'Preparing $modelId…';
       _selected = modelId;
     });
     try {
       await _store.ensureModel(
         modelId,
+        onStatus: (status) {
+          if (!mounted) return;
+          setState(() => _progressLabel = status);
+        },
         onProgress: (p) {
           if (!mounted) return;
           setState(() {
-            _progressLabel = 'Downloading $modelId… ${(p * 100).round()}%';
+            _progressLabel =
+                'Downloading $modelId… ${(p * 100).round()}%';
           });
         },
       );
@@ -59,7 +64,11 @@ class _ModelsPageState extends State<ModelsPage> {
       await _settings.save();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Model $modelId ready')),
+        SnackBar(
+          content: Text(
+            'Model $modelId ready — Home will load it on next dictate',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

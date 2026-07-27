@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:archive/archive.dart';
 import 'package:http/http.dart' as http;
@@ -67,6 +68,7 @@ class SpeechModelStore {
   Future<String> ensureModel(
     String modelId, {
     void Function(double progress)? onProgress,
+    void Function(String status)? onStatus,
   }) async {
     final spec = _catalog[modelId];
     if (spec == null) {
@@ -75,8 +77,14 @@ class SpeechModelStore {
 
     final dir = await modelsDir();
     if (spec.isArchive) {
-      return _ensureArchiveModel(dir, spec, onProgress: onProgress);
+      return _ensureArchiveModel(
+        dir,
+        spec,
+        onProgress: onProgress,
+        onStatus: onStatus,
+      );
     }
+    onStatus?.call('Downloading $modelId…');
     return _ensureFileModel(dir, spec, modelId, onProgress: onProgress);
   }
 
@@ -103,6 +111,7 @@ class SpeechModelStore {
     Directory dir,
     _ModelSpec spec, {
     void Function(double progress)? onProgress,
+    void Function(String status)? onStatus,
   }) async {
     final modelDir = Directory(p.join(dir.path, spec.dirName!));
     if (await _isReadyParakeetDir(modelDir)) {
@@ -111,6 +120,7 @@ class SpeechModelStore {
 
     final archiveFile = File(p.join(dir.path, spec.archiveName!));
     if (!await archiveFile.exists() || await archiveFile.length() < 1_000_000) {
+      onStatus?.call('Downloading ${spec.dirName}…');
       await _downloadToFile(
         Uri.parse(spec.url),
         archiveFile,
@@ -120,43 +130,21 @@ class SpeechModelStore {
       onProgress(1.0);
     }
 
-    if (await modelDir.exists()) {
-      await modelDir.delete(recursive: true);
-    }
-    await modelDir.create(recursive: true);
-
-    final bytes = await archiveFile.readAsBytes();
-    final tarBytes = BZip2Decoder().decodeBytes(bytes);
-    final archive = TarDecoder().decodeBytes(tarBytes);
-
-    for (final entry in archive) {
-      final name = entry.name.replaceAll('\\', '/');
-      // Strip a single top-level folder if present.
-      final parts = name.split('/').where((s) => s.isNotEmpty).toList();
-      if (parts.isEmpty) continue;
-      final relative = parts.length > 1
-          ? p.joinAll(parts.sublist(1))
-          : parts.first;
-      if (relative.isEmpty || relative == '.') continue;
-
-      final outPath = p.join(modelDir.path, relative);
-      if (entry.isDirectory || name.endsWith('/')) {
-        await Directory(outPath).create(recursive: true);
-        continue;
-      }
-      final outFile = File(outPath);
-      await outFile.parent.create(recursive: true);
-      await outFile.writeAsBytes(entry.content as List<int>);
-    }
+    // Heavy bz2/tar work off the UI isolate.
+    onStatus?.call('Extracting ${spec.dirName}…');
+    onProgress?.call(1.0);
+    await Isolate.run(
+      () => _extractParakeetArchiveSync(
+        archiveFile.path,
+        modelDir.path,
+      ),
+    );
 
     if (!await _isReadyParakeetDir(modelDir)) {
       throw StateError(
         'Parakeet archive extracted but required ONNX files were not found',
       );
     }
-
-    // Keep archive for re-extract; optional delete to save space:
-    // await archiveFile.delete();
 
     return modelDir.path;
   }
@@ -242,4 +230,34 @@ class _ModelSpec {
   final String url;
   final int minBytes;
   final bool isArchive;
+}
+
+void _extractParakeetArchiveSync(String archivePath, String modelDirPath) {
+  final modelDir = Directory(modelDirPath);
+  if (modelDir.existsSync()) {
+    modelDir.deleteSync(recursive: true);
+  }
+  modelDir.createSync(recursive: true);
+
+  final bytes = File(archivePath).readAsBytesSync();
+  final tarBytes = BZip2Decoder().decodeBytes(bytes);
+  final archive = TarDecoder().decodeBytes(tarBytes);
+
+  for (final entry in archive) {
+    final name = entry.name.replaceAll('\\', '/');
+    final parts = name.split('/').where((s) => s.isNotEmpty).toList();
+    if (parts.isEmpty) continue;
+    final relative =
+        parts.length > 1 ? p.joinAll(parts.sublist(1)) : parts.first;
+    if (relative.isEmpty || relative == '.') continue;
+
+    final outPath = p.join(modelDirPath, relative);
+    if (entry.isDirectory || name.endsWith('/')) {
+      Directory(outPath).createSync(recursive: true);
+      continue;
+    }
+    final outFile = File(outPath);
+    outFile.parent.createSync(recursive: true);
+    outFile.writeAsBytesSync(entry.content as List<int>);
+  }
 }

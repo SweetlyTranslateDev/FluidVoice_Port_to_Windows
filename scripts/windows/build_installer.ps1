@@ -1,21 +1,29 @@
-# Builds Release, then compiles the Inno Setup installer when ISCC is available.
+# Builds Release portable output, then compiles the Inno Setup installer when ISCC is available.
 # Falls back to portable zip only if Inno Setup is not installed.
 
 param(
-  [string]$FlutterAppDir = "C:\dev\FluidVoice_Port_to_Windows\flutter_app",
+  [string]$RepoRoot = "",
   [string]$IssPath = "",
   [string]$IsccPath = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-$repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+if (-not $RepoRoot) {
+  $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+}
+
+$Junction = "C:\dev\FluidVoice_Port_to_Windows"
+if ((Test-Path $Junction) -and ($RepoRoot -match ";")) {
+  $RepoRoot = $Junction
+}
+
 if ([string]::IsNullOrWhiteSpace($IssPath)) {
-  $IssPath = Join-Path $repoRoot "scripts\windows\FluidVoice.iss"
+  $IssPath = Join-Path $RepoRoot "scripts\windows\FluidVoice.iss"
 }
 
 $portableScript = Join-Path $PSScriptRoot "build_portable.ps1"
-& $portableScript -FlutterAppDir $FlutterAppDir
+& $portableScript -RepoRoot $RepoRoot
 
 if ([string]::IsNullOrWhiteSpace($IsccPath)) {
   $candidates = @(
@@ -35,8 +43,10 @@ if (-not $IsccPath -or -not (Test-Path $IsccPath)) {
   exit 0
 }
 
-$releaseDir = Join-Path $FlutterAppDir "build\windows\x64\runner\Release"
-$outDir = Join-Path $FlutterAppDir "dist"
+$FlutterApp = Join-Path $RepoRoot "flutter_app"
+$releaseDir = Join-Path $FlutterApp "build\windows\x64\runner\Release"
+$outDir = Join-Path $RepoRoot "dist"
+New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 
 Write-Host "Compiling installer with $IsccPath"
 & $IsccPath `
@@ -45,3 +55,6 @@ Write-Host "Compiling installer with $IsccPath"
   $IssPath
 
 Write-Host "Installer output directory: $outDir"
+Get-ChildItem $outDir -Filter "FluidVoice-Windows-Setup-*.exe" | ForEach-Object {
+  Write-Host ("Setup: " + $_.FullName)
+}

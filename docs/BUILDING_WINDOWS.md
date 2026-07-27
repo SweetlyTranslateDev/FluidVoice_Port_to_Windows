@@ -129,9 +129,9 @@ cd C:\dev\FluidVoice_Port_to_Windows
 | Deliverable | How |
 |-------------|-----|
 | Portable folder + zip | `build_portable.ps1` → `dist\FluidVoice-portable\` and `.zip` |
-| Installer | `build_installer.ps1` + [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) → `FluidVoice-Windows-Setup-*.exe` |
+| Installer | `build_installer.ps1` + [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) → `dist\FluidVoice-Windows-Setup-*.exe` |
 
-The installer script still produces the portable zip if Inno Setup is missing.
+The installer script still produces the portable zip if Inno Setup is missing. `dist/` is gitignored.
 
 Do not ship Electron or Qt wrappers.
 

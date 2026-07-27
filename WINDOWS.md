@@ -36,7 +36,7 @@ Prefer **Release** for day-to-day STT speed testing (Debug ggml is much slower).
 | AI API key | Windows Credential Manager |
 | Output modes | raw / enhance / rewrite / write |
 | Local API | `127.0.0.1:47733` when enabled |
-| Packaging | `scripts/windows/build_portable.ps1` |
+| Packaging | Portable zip + Inno Setup (`scripts/windows/`) |
 
 ## Models
 
@@ -44,14 +44,15 @@ Prefer **Release** for day-to-day STT speed testing (Debug ggml is much slower).
 - Parakeet: extract `sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8` (~400MB) into a directory with `encoder*.onnx`, `decoder*.onnx`, `joiner*.onnx`, `tokens.txt`
 - Native runtime DLLs (`sherpa-onnx-c-api.dll`, `onnxruntime*.dll`) ship beside the exe
 
-## Portable Release package
+## Portable / installer packages
 
 ```powershell
 cd C:\dev\FluidVoice_Port_to_Windows
 .\scripts\windows\build_portable.ps1
+.\scripts\windows\build_installer.ps1
 ```
 
-Produces `dist\FluidVoice-portable\` and a zip. No Visual Studio needed to run.
+Produces `dist\FluidVoice-portable\`, `dist\FluidVoice-portable.zip`, and (with Inno Setup 6) `dist\FluidVoice-Windows-Setup-1.0.0.exe`. No Visual Studio needed to run the packaged app.
 
 ## Later (not MVP)
 

@@ -40,17 +40,22 @@ class HotkeyStateMachine {
     final shortcut = _shortcut;
     if (shortcut == null) return;
     if (event.keyCode != shortcut.keyCode) return;
-    if (!_modifiersMatch(event.modifiers, shortcut.modifiers)) return;
 
     switch (_mode) {
       case HotkeyActivationMode.pushToTalk:
-        if (event.type == HotkeyEventType.keyDown && !_keyDown) {
+        if (event.type == HotkeyEventType.keyDown) {
+          // Exact modifiers required to start.
+          if (!_modifiersMatch(event.modifiers, shortcut.modifiers)) return;
+          if (_keyDown) return;
           _keyDown = true;
           if (!_recording) {
             _recording = true;
             _actions.add(HotkeyMachineAction.startRecording);
           }
-        } else if (event.type == HotkeyEventType.keyUp && _keyDown) {
+        } else if (event.type == HotkeyEventType.keyUp) {
+          // Accept key-up even if modifiers were released first (native emits
+          // this case). Otherwise PTT never stops for Ctrl/Alt/Shift combos.
+          if (!_keyDown) return;
           _keyDown = false;
           if (_recording) {
             _recording = false;
@@ -58,7 +63,9 @@ class HotkeyStateMachine {
           }
         }
       case HotkeyActivationMode.toggle:
-        if (event.type == HotkeyEventType.keyDown && !_keyDown) {
+        if (event.type == HotkeyEventType.keyDown) {
+          if (!_modifiersMatch(event.modifiers, shortcut.modifiers)) return;
+          if (_keyDown) return;
           _keyDown = true;
           _recording = !_recording;
           _actions.add(

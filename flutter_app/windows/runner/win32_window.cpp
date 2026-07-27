@@ -15,12 +15,6 @@ namespace {
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
-#ifndef DWMWA_SYSTEMBACKDROP_TYPE
-#define DWMWA_SYSTEMBACKDROP_TYPE 38
-#endif
-#ifndef DWMSBT_TRANSIENTWINDOW
-#define DWMSBT_TRANSIENTWINDOW 3
-#endif
 
 // Logical minimum size (DIP). Stops Flutter debug overflow stripes.
 constexpr int kMinWindowWidthDip = 900;
@@ -61,18 +55,6 @@ void EnableFullDpiSupportIfAvailable(HWND hwnd) {
     enable_non_client_dpi_scaling(hwnd);
   }
   FreeLibrary(user32_module);
-}
-
-}  // namespace
-
-namespace {
-
-void EnableAcrylicBackdrop(HWND hwnd) {
-  const int backdrop = DWMSBT_TRANSIENTWINDOW;
-  DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop,
-                        sizeof(backdrop));
-  const MARGINS margins = {-1};
-  DwmExtendFrameIntoClientArea(hwnd, &margins);
 }
 
 }  // namespace
@@ -167,7 +149,8 @@ bool Win32Window::Create(const std::wstring& title,
   }
 
   UpdateTheme(window);
-  EnableAcrylicBackdrop(window);
+  // Acrylic/mica is applied from Dart via fluidvoice/window_chrome so the
+  // toggle can enable/disable it. Do not force a backdrop here.
 
   return OnCreate();
 }

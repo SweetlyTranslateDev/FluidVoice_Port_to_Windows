@@ -1,20 +1,18 @@
 # FluidVoice Flutter (Windows)
 
-Parallel Windows app for FluidVoice. The macOS Swift tree at the repository root stays untouched.
+Windows desktop app for FluidVoice. Built with Flutter + native C++ plugins.
 
-## Status
+The macOS Swift tree at the repository root is **reference only** and is not used by this Windows build.
 
-Core loop:
+## Core loop
 
 **Hold hotkey (default F8) → WASAPI capture → Whisper or Parakeet → text inject + overlay → history**
 
-Also included: tray, settings persistence, model picker (`tiny.en` / `base.en` / `parakeet-tdt-0.6b-v2-int8`), launch-at-login, Credential Manager API keys, AI output modes, loopback Local API, portable packaging.
+Also: tray, settings, model picker (`tiny.en` / `base.en` / `parakeet-tdt-0.6b-v2-int8`), launch-at-login, Credential Manager API keys, AI output modes, local API, portable + installer packaging.
 
 ## Run
 
-Prefer a path **without `;`** (junction example: `C:\dev\FluidVoice_Port_to_Windows`).
-
-For usable STT speed, use **Release**:
+Use a path **without `;`** (junction: `C:\dev\FluidVoice_Port_to_Windows`). Prefer **Release** for STT speed:
 
 ```powershell
 cd C:\dev\FluidVoice_Port_to_Windows\flutter_app
@@ -22,35 +20,25 @@ flutter pub get
 flutter run -d windows --release
 ```
 
-Debug builds work but Whisper/Parakeet will feel much slower.
-
-## Models
-
-Select in **Models**:
-
-| Id | Backend |
-|----|---------|
-| `tiny.en` / `base.en` | whisper.cpp (ggml) |
-| `parakeet-tdt-0.6b-v2-int8` | sherpa-onnx Parakeet TDT (English int8 ONNX) |
-
-Large Parakeet download shows progress in the Models page; files cache under AppData.
+On Home, confirm the status line shows your model (`backend:Parakeet ONNX` or `backend:Whisper`).
 
 ## Package
 
 ```powershell
 cd C:\dev\FluidVoice_Port_to_Windows
 .\scripts\windows\build_portable.ps1
+.\scripts\windows\build_installer.ps1
 ```
 
-Optional installer script (if present): `.\scripts\windows\build_installer.ps1`
+Outputs under `dist\` (portable folder/zip + Setup.exe when Inno Setup 6 is installed).
 
 ## Docs
 
+- [Root README](../README.md)
+- [Windows quick start](../WINDOWS.md)
+- [Building Windows](../docs/BUILDING_WINDOWS.md)
 - [Architecture](../docs/ARCHITECTURE.md)
 - [Windows port plan](../docs/WINDOWS_PORT_PLAN.md)
 - [Plugin API](../docs/PLUGIN_API.md)
-- [Building Windows](../docs/BUILDING_WINDOWS.md)
 - [Local API](../docs/LOCAL_API.md)
-- [Windows quick start](../WINDOWS.md)
-- [Contributing](../docs/CONTRIBUTING.md)
-- [ONNX / Parakeet notes](../native_plugins/speech_runtime/onnx_runtime/README.md)
+- [ONNX / Parakeet](../native_plugins/speech_runtime/onnx_runtime/README.md)

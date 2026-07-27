@@ -2,11 +2,14 @@
 
 | Script | Purpose |
 |--------|---------|
-| `build_portable.ps1` | `flutter build windows --release` + zip of Release tree |
-| `build_installer.ps1` | Portable build, then Inno Setup (`FluidVoice.iss`) if ISCC is installed |
-| `FluidVoice.iss` | Inno Setup 6 definition |
+| `build_portable.ps1` | `flutter build windows --release`, copy runner + DLLs to `dist\FluidVoice-portable\`, zip |
+| `build_installer.ps1` | Portable build, then Inno Setup (`FluidVoice.iss`) if `ISCC.exe` is installed |
+| `FluidVoice.iss` | Inno Setup 6 definition (per-user install, x64) |
+| `verify_speech_smoke.ps1` | Native Whisper + Parakeet prepare/transcribe smoke test |
 
-Use the junction path without `;` (for example `C:\dev\FluidVoice_Port_to_Windows`) when invoking Flutter.
+## Usage
+
+Prefer a path **without `;`** (junction: `C:\dev\FluidVoice_Port_to_Windows`):
 
 ```powershell
 cd C:\dev\FluidVoice_Port_to_Windows
@@ -14,4 +17,9 @@ cd C:\dev\FluidVoice_Port_to_Windows
 .\scripts\windows\build_installer.ps1
 ```
 
-Output defaults to `flutter_app\dist\`.
+Outputs land under `dist\`:
+
+- `FluidVoice-portable\` / `FluidVoice-portable.zip`
+- `FluidVoice-Windows-Setup-1.0.0.exe` (requires [Inno Setup 6](https://jrsoftware.org/isinfo.php))
+
+Models download on first run into AppData; they are not bundled in the installer.

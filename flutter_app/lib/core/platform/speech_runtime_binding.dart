@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
@@ -67,12 +68,21 @@ class SpeechRuntimeBinding {
     if (samples.isEmpty) {
       return '';
     }
+    final floats = Float32List(samples.length);
+    for (var i = 0; i < samples.length; i++) {
+      floats[i] = samples[i].toDouble();
+    }
+    return transcribeFloats(floats, sampleRate: sampleRate);
+  }
+
+  String transcribeFloats(Float32List samples, {int sampleRate = 16000}) {
+    if (samples.isEmpty) {
+      return '';
+    }
     final data = calloc<Float>(samples.length);
     final outPtr = calloc<Pointer<Utf8>>();
     try {
-      for (var i = 0; i < samples.length; i++) {
-        data[i] = samples[i];
-      }
+      data.asTypedList(samples.length).setAll(0, samples);
       final code = _transcribe(data, samples.length, sampleRate, outPtr);
       if (code != 0) {
         throw StateError('fv_speech_transcribe failed (${lastError()})');

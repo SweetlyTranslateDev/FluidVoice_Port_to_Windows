@@ -98,7 +98,7 @@ class _AppShellState extends State<AppShell> {
                   ),
                 Expanded(
                   child: ColoredBox(
-                    color: FluidColors.contentBackground.withValues(alpha: 0.92),
+                    color: FluidColors.contentBackground,
                     child: IndexedStack(
                       index: index < 0 ? 0 : index,
                       children: [
@@ -159,7 +159,7 @@ class _Sidebar extends StatelessWidget {
       curve: Curves.easeOutCubic,
       width: width,
       decoration: BoxDecoration(
-        color: FluidColors.sidebarBackground.withValues(alpha: 0.88),
+        color: FluidColors.sidebarBackground,
         border: const Border(
           right: BorderSide(color: FluidColors.cardBorder),
         ),
@@ -171,39 +171,60 @@ class _Sidebar extends StatelessWidget {
             padding: EdgeInsets.fromLTRB(
               collapsed ? FluidSpacing.sm : FluidSpacing.lg,
               FluidSpacing.xl,
-              collapsed ? FluidSpacing.sm : FluidSpacing.md,
+              collapsed ? FluidSpacing.sm : FluidSpacing.lg,
               FluidSpacing.md,
             ),
-            child: collapsed
-                ? Column(
-                    children: [
-                      const _BrandMark(compact: true),
-                      const SizedBox(height: FluidSpacing.sm),
-                      IconButton(
-                        tooltip: 'Expand sidebar',
-                        onPressed: onToggleCollapsed,
-                        icon: const Icon(Icons.chevron_right_rounded),
-                        color: FluidColors.secondaryText,
-                      ),
-                    ],
+            child: Column(
+              crossAxisAlignment: collapsed
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
+              children: [
+                _BrandMark(compact: collapsed),
+                const SizedBox(height: FluidSpacing.sm),
+                if (collapsed)
+                  IconButton(
+                    tooltip: 'Expand sidebar',
+                    onPressed: onToggleCollapsed,
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    icon: const Icon(Icons.chevron_right_rounded),
+                    color: FluidColors.secondaryText,
                   )
-                : Row(
+                else
+                  Row(
                     children: [
-                      const Expanded(child: _BrandMark(compact: false)),
                       IconButton(
                         tooltip: 'Collapse sidebar',
                         onPressed: onToggleCollapsed,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                         icon: const Icon(Icons.chevron_left_rounded),
                         color: FluidColors.secondaryText,
                       ),
                       IconButton(
                         tooltip: 'Hide sidebar',
                         onPressed: onHide,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                         icon: const Icon(Icons.keyboard_double_arrow_left),
                         color: FluidColors.secondaryText,
                       ),
                     ],
                   ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: FluidSpacing.sm),

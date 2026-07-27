@@ -14,7 +14,7 @@
 #endif
 
 #ifndef OutputDir
-  #define OutputDir "C:\dev\FluidVoice_Port_to_Windows\flutter_app\dist"
+  #define OutputDir "C:\dev\FluidVoice_Port_to_Windows\dist"
 #endif
 
 [Setup]
