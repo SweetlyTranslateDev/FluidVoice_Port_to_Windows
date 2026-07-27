@@ -23,7 +23,7 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 - **Whisper** `tiny.en` / `base.en` (ggml)
 - **Parakeet TDT** `parakeet-tdt-0.6b-v2-int8` (English ONNX, offline batch)
 - Text injection into other apps (SendInput → clipboard → UIA)
-- Live overlay, system tray (close hides; Quit from tray)
+- Live overlay, floating dictation pill (optional), system tray (close quits; minimize-to-tray is optional)
 - Settings & transcript history (AppData JSON)
 - Launch at login, always-on-top, optional acrylic
 - Optional cloud AI output modes (raw / enhance / rewrite / write) via API key in Windows Credential Manager
@@ -34,11 +34,24 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 
 ---
 
-## Quick start (run from source)
+## How to build
 
-1. Install **Flutter stable** and **Visual Studio 2022** with “Desktop development with C++”.
-2. Use a workspace path **without `;`**. If needed, create a junction, e.g. `C:\dev\FluidVoice_Port_to_Windows`.
-3. Prefer **Release** for usable STT speed:
+### Prerequisites
+
+1. **Flutter stable** with Windows desktop enabled (`flutter config --enable-windows-desktop`).
+2. **Visual Studio 2022** with the “Desktop development with C++” workload.
+3. Workspace path **without `;`**. If the real path has a semicolon, use a junction:
+
+```powershell
+cmd /c mklink /J C:\dev\FluidVoice_Port_to_Windows "C:\path\to\real\repo"
+```
+
+4. Fonts under `flutter_app/assets/fonts/` (see [Fonts](#fonts) below) — required before `flutter build` / `flutter run`.
+5. For the Setup installer only: [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+
+### Run from source
+
+Prefer **Release** for usable STT speed:
 
 ```powershell
 cd C:\dev\FluidVoice_Port_to_Windows\flutter_app
@@ -46,14 +59,11 @@ flutter pub get
 flutter run -d windows --release
 ```
 
-4. Hold the hotkey to dictate; release to transcribe and inject.
-5. On first use, the selected model downloads (network once). Parakeet is ~400MB.
+Hold the hotkey to dictate; release to transcribe and inject. On first use, the selected model downloads (network once). Parakeet is ~400MB.
 
 On **Home**, the status line shows the active model, e.g. `model:parakeet-tdt-0.6b-v2-int8 · backend:Parakeet ONNX`.
 
----
-
-## Install packages
+### Package portable + installer
 
 From the repo root (junction path recommended):
 
@@ -67,9 +77,47 @@ cd C:\dev\FluidVoice_Port_to_Windows
 |--------|----------|
 | Portable folder | `dist\FluidVoice-portable\` |
 | Portable zip | `dist\FluidVoice-portable.zip` |
-| Setup exe | `dist\FluidVoice-Windows-Setup-1.0.0.exe` (needs [Inno Setup 6](https://jrsoftware.org/isinfo.php)) |
+| Setup exe | `dist\FluidVoice-Windows-Setup-1.0.0.exe` |
 
-Runtime DLLs (`fluidvoice_*.dll`, `sherpa-onnx-c-api.dll`, `onnxruntime*.dll`) ship beside the exe. Speech models are **not** bundled; they download into AppData on first use.
+Both packages are the same Flutter **Release** app (optimized binary + DLLs + embedded assets including fonts). Speech models are **not** bundled; they download into AppData on first use.
+
+| | **Portable** (`FluidVoice-portable.zip`) | **Setup** (`FluidVoice-Windows-Setup-*.exe`) |
+|--|------------------------------------------|-----------------------------------------------|
+| What it is | Unzip-and-run copy of the Release folder | Inno Setup installer wrapping that same Release folder |
+| Install | None — extract anywhere (USB, Desktop, etc.) | Copies into a Program Files–style app folder |
+| Shortcuts | None | Start Menu (+ optional desktop icon) |
+| Uninstall | Delete the folder | Windows Apps & features / uninstaller |
+| Who it’s for | Trying the app without installing, or keeping a self-contained folder | Typical end-user install |
+
+More toolchain detail: [docs/BUILDING_WINDOWS.md](docs/BUILDING_WINDOWS.md).
+
+---
+
+## Fonts
+
+Font `.ttf` files live under `flutter_app/assets/fonts/` and are **gitignored** (large binaries). They are declared in `flutter_app/pubspec.yaml` and **embedded into Release builds**, so downloaders of the portable zip or Setup exe already get them — no separate font download.
+
+### Required files (to build from source)
+
+| File | Role |
+|------|------|
+| `FluidUI-Light.ttf` | UI (weight 300) |
+| `FluidUI-Regular.ttf` | UI (400–600) |
+| `FluidUI-Bold.ttf` | UI (700) |
+| `FluidUI-Italic.ttf` | UI italic |
+| `NotoSans-Regular.ttf` / `NotoSans-Bold.ttf` | Multilingual Latin/Cyrillic/Greek transcript fallback |
+| `NotoSansArabic-Regular.ttf` | Arabic fallback |
+| `NotoSansDevanagari-Regular.ttf` | Devanagari fallback |
+
+CJK falls back to Windows UI fonts at runtime (no bundled CJK TTFs).
+
+### Getting fonts for a source build
+
+1. Place the FluidUI files in `flutter_app/assets/fonts/` (same set used for the Windows port branding).
+2. Download Noto Sans / Noto Sans Arabic / Noto Sans Devanagari from [Google Fonts](https://fonts.google.com/) (SIL Open Font License) and copy the Regular/Bold TTFs named exactly as in the table above.
+3. Run `flutter pub get` then build as usual.
+
+If fonts are missing, `flutter build windows` will fail on the missing asset paths in `pubspec.yaml`.
 
 ---
 
