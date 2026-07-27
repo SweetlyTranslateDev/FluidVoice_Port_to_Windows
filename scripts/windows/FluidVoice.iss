@@ -34,6 +34,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 UninstallDisplayIcon={app}\{#MyAppExeName}
+; Shown before install: what is / is not ported yet.
+InfoBeforeFile=INSTALLER_INFO.txt
+InfoAfterFile=INSTALLER_INFO.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

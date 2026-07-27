@@ -23,3 +23,7 @@ Outputs land under `dist\`:
 - `FluidVoice-Windows-Setup-1.0.0.exe` (requires [Inno Setup 6](https://jrsoftware.org/isinfo.php))
 
 Models download on first run into AppData; they are not bundled in the installer.
+
+## GitHub Release text
+
+Paste **[docs/WINDOWS_RELEASE_NOTES.md](../../docs/WINDOWS_RELEASE_NOTES.md)** into the Release description so downloaders see **ported vs not ported**. The Setup wizard also shows `INSTALLER_INFO.txt` before/after install.

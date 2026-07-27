@@ -54,11 +54,8 @@ cd C:\dev\FluidVoice_Port_to_Windows
 
 Produces `dist\FluidVoice-portable\`, `dist\FluidVoice-portable.zip`, and (with Inno Setup 6) `dist\FluidVoice-Windows-Setup-1.0.0.exe`. No Visual Studio needed to run the packaged app.
 
-## Later (not MVP)
+## Port status (MVP, not full parity)
 
-- Vosk backend  
-- Meeting / file transcription  
-- Installer / auto-updater  
-- Full macOS feature parity  
+See **[docs/WINDOWS_RELEASE_NOTES.md](docs/WINDOWS_RELEASE_NOTES.md)** for the release checklist of what is included vs not (Fluid Intelligence, streaming Parakeet Flash, Command Mode, meeting STT, Vosk, auto-updater, etc.).
 
-See `docs/BUILDING_WINDOWS.md` and `docs/WINDOWS_PORT_PLAN.md`.
+Also: `docs/BUILDING_WINDOWS.md`, `docs/WINDOWS_PORT_PLAN.md`.

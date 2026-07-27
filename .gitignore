@@ -212,6 +212,7 @@ docs/*
 !docs/CONTRIBUTING.md
 !docs/LOCAL_API.md
 !docs/MACOS_UI_AUTOMATION_BRANCH_PLAN.md
+!docs/WINDOWS_RELEASE_NOTES.md
 
 
 .agent/

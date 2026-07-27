@@ -1,0 +1,23 @@
+FluidVoice for Windows — MVP port (not full macOS parity)
+============================================================
+
+INCLUDED
+- Push-to-talk hotkey (default F8, configurable)
+- WASAPI microphone + device picker
+- Whisper (tiny.en / base.en) and Parakeet TDT ONNX (English)
+- Text injection, overlay, system tray
+- History, settings, launch at login
+- Optional cloud AI modes + local loopback API
+- Portable / Setup packaging
+
+NOT INCLUDED YET
+- Fluid Intelligence, Apple Speech / CoreML
+- Streaming Parakeet Flash, Vosk
+- Nemotron / Cohere / full multilingual model catalog
+- Command Mode, meeting/file transcription
+- Per-app prompts, audio history export
+- Auto-updater, full macOS UI/feature parity
+
+Models download on first use (not bundled). Prefer this Release build for speed.
+
+Full notes: docs/WINDOWS_RELEASE_NOTES.md in the repository.

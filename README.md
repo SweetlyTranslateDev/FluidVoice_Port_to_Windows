@@ -30,7 +30,7 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 - Optional local loopback API on `127.0.0.1:47733`
 - Portable zip and Inno Setup installer
 
-Not in this Windows slice yet: Vosk, streaming Parakeet Flash, meeting/file STT, full macOS feature parity.
+**This is not a full port of macOS FluidVoice.** See [docs/WINDOWS_RELEASE_NOTES.md](docs/WINDOWS_RELEASE_NOTES.md) for a clear **ported vs not ported** list to use on GitHub Releases with the installer / portable zip.
 
 ---
 
