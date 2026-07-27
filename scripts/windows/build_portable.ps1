@@ -1,41 +1,77 @@
-# Builds a portable FluidVoice zip from a Flutter Windows Release tree.
-# Run from anywhere. Prefer the junction path without ';' for Flutter builds.
+# Builds a portable Release folder for FluidVoice Windows (no Visual Studio required to run).
+# Prefer a path without ';' (junction), e.g. C:\dev\FluidVoice_Port_to_Windows
 
 param(
-  [string]$FlutterAppDir = "C:\dev\FluidVoice_Port_to_Windows\flutter_app",
+  [string]$RepoRoot = "",
   [string]$OutDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $FlutterAppDir)) {
-  throw "Flutter app dir not found: $FlutterAppDir"
+if (-not $RepoRoot) {
+  $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 }
 
-if ([string]::IsNullOrWhiteSpace($OutDir)) {
-  $OutDir = Join-Path $FlutterAppDir "dist"
+# Prefer junction path when the real path contains ';' (breaks Flutter/CMake).
+$Junction = "C:\dev\FluidVoice_Port_to_Windows"
+if ((Test-Path $Junction) -and ($RepoRoot -match ";")) {
+  $RepoRoot = $Junction
 }
 
+$FlutterApp = Join-Path $RepoRoot "flutter_app"
+if (-not (Test-Path (Join-Path $FlutterApp "pubspec.yaml"))) {
+  throw "flutter_app not found under $RepoRoot"
+}
+
+if (-not $OutDir) {
+  $OutDir = Join-Path $RepoRoot "dist\FluidVoice-portable"
+}
+
+Write-Host "RepoRoot: $RepoRoot"
 Write-Host "Building Flutter Windows Release..."
-Set-Location $FlutterAppDir
-flutter build windows --release
-
-$releaseDir = Join-Path $FlutterAppDir "build\windows\x64\runner\Release"
-if (-not (Test-Path (Join-Path $releaseDir "fluidvoice_app.exe"))) {
-  throw "Release output missing: $releaseDir"
+Push-Location $FlutterApp
+try {
+  flutter pub get
+  flutter build windows --release
+}
+finally {
+  Pop-Location
 }
 
-New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-$stamp = Get-Date -Format "yyyyMMdd"
-$zipPath = Join-Path $OutDir "FluidVoice-Windows-portable-$stamp.zip"
-
-if (Test-Path $zipPath) {
-  Remove-Item -Force $zipPath
+$ReleaseDir = Join-Path $FlutterApp "build\windows\x64\runner\Release"
+if (-not (Test-Path (Join-Path $ReleaseDir "fluidvoice_app.exe"))) {
+  throw "Release output missing at $ReleaseDir"
 }
 
-Write-Host "Creating portable zip: $zipPath"
-Compress-Archive -Path (Join-Path $releaseDir "*") -DestinationPath $zipPath -Force
+if (Test-Path $OutDir) {
+  Remove-Item -Recurse -Force $OutDir
+}
+New-Item -ItemType Directory -Path $OutDir | Out-Null
 
-Write-Host "Done."
-Write-Host "Portable archive: $zipPath"
-Write-Host "Required DLLs (wasapi/hotkeys/speech/inject) are included beside the exe."
+Write-Host "Copying Release bundle to $OutDir"
+Copy-Item -Path (Join-Path $ReleaseDir "*") -Destination $OutDir -Recurse -Force
+
+$Required = @(
+  "fluidvoice_app.exe",
+  "flutter_windows.dll",
+  "fluidvoice_speech.dll",
+  "sherpa-onnx-c-api.dll",
+  "onnxruntime.dll",
+  "onnxruntime_providers_shared.dll"
+)
+foreach ($name in $Required) {
+  $path = Join-Path $OutDir $name
+  if (-not (Test-Path $path)) {
+    throw "Missing required file in portable output: $name"
+  }
+}
+
+$ZipPath = "$OutDir.zip"
+if (Test-Path $ZipPath) {
+  Remove-Item -Force $ZipPath
+}
+Compress-Archive -Path (Join-Path $OutDir "*") -DestinationPath $ZipPath -Force
+
+Write-Host "Portable folder: $OutDir"
+Write-Host "Zip: $ZipPath"
+Write-Host "Done. Models download on first run into AppData."

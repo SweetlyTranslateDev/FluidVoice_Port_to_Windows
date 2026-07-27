@@ -1,21 +1,22 @@
 import 'dart:async';
+import 'dart:isolate';
 
 import '../interfaces/speech_engine.dart';
 import '../models/audio_models.dart';
 import '../models/transcript_models.dart';
+import 'speech_model_store.dart';
 import 'speech_runtime_binding.dart';
-import 'whisper_model_store.dart';
 
-/// [SpeechEngine] backed by native speech_runtime (whisper.cpp).
+/// [SpeechEngine] backed by native speech_runtime (Whisper / Parakeet).
 class SpeechRuntimeEngine implements SpeechEngine {
   SpeechRuntimeEngine({
     SpeechRuntimeBinding? binding,
-    WhisperModelStore? modelStore,
+    SpeechModelStore? modelStore,
   })  : _binding = binding ?? SpeechRuntimeBinding.tryOpen(),
-        _models = modelStore ?? WhisperModelStore();
+        _models = modelStore ?? SpeechModelStore();
 
   final SpeechRuntimeBinding? _binding;
-  final WhisperModelStore _models;
+  final SpeechModelStore _models;
   final _transcriptController = StreamController<TranscriptEvent>.broadcast();
 
   bool _initialized = false;
@@ -62,11 +63,12 @@ class SpeechRuntimeEngine implements SpeechEngine {
   Future<TranscriptResult> transcribe(AudioBuffer audio) async {
     _ensureInit();
     if (_readyModelId == null) {
-      await prepare(modelId: WhisperModelStore.defaultModelId);
+      await prepare(modelId: SpeechModelStore.defaultModelId);
     }
-    final text = _binding!.transcribe(
-      audio.samples,
-      sampleRate: audio.sampleRate,
+    final samples = List<double>.from(audio.samples);
+    final sampleRate = audio.sampleRate;
+    final text = await Isolate.run(
+      () => _transcribeInIsolate(samples, sampleRate),
     );
     final result = TranscriptResult(text: text, rawText: text);
     if (!_transcriptController.isClosed && text.isNotEmpty) {
@@ -85,4 +87,13 @@ class SpeechRuntimeEngine implements SpeechEngine {
     }
     await _transcriptController.close();
   }
+}
+
+String _transcribeInIsolate(List<double> samples, int sampleRate) {
+  final binding = SpeechRuntimeBinding.tryOpen();
+  if (binding == null) {
+    throw StateError('fluidvoice_speech.dll not found in isolate');
+  }
+  binding.init();
+  return binding.transcribe(samples, sampleRate: sampleRate);
 }

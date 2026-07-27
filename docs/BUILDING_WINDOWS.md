@@ -50,11 +50,17 @@ cd flutter_app
 flutter run -d windows
 ```
 
-## Build (release)
+## Build (release) — preferred for STT speed
 
 ```powershell
 cd flutter_app
 flutter build windows --release
+```
+
+Or run Release directly:
+
+```powershell
+flutter run -d windows --release
 ```
 
 Output typically lands under:
@@ -62,6 +68,8 @@ Output typically lands under:
 ```text
 flutter_app\build\windows\x64\runner\Release\
 ```
+
+Release also installs `sherpa-onnx-c-api.dll` and `onnxruntime*.dll` beside the exe.
 
 ## Native plugins
 
@@ -90,17 +98,23 @@ Native FFI DLLs built with the runner:
 
 - `fluidvoice_wasapi.dll`
 - `fluidvoice_hotkeys.dll`
-- `fluidvoice_speech.dll` (whisper.cpp via CMake FetchContent)
+- `fluidvoice_speech.dll` (whisper.cpp + sherpa-onnx / Parakeet)
 - `fluidvoice_inject.dll`
 
 Overlay and tray are compiled into the runner (MethodChannels), not separate DLLs.
 
-## speech_runtime / whisper.cpp
+## speech_runtime (Whisper + Parakeet)
 
-Models download on first use (default `tiny.en`) into the app support `FluidVoice\models` folder.
+Models download on first use into the app support `FluidVoice\models` folder.
+
+| Model id | Path kind |
+|----------|-----------|
+| `tiny.en` / `base.en` | ggml `.bin` file |
+| `parakeet-tdt-0.6b-v2-int8` | ONNX directory (`encoder`/`decoder`/`joiner` + `tokens.txt`) |
 
 - App selects models through `SpeechEngine.prepare(modelId: ...)`.
-- First CMake configure clones whisper.cpp (`v1.7.5`); first build is slow.
+- First CMake configure clones whisper.cpp (`v1.7.5`) and downloads pinned sherpa-onnx Windows prebuilts (`v1.12.23` shared MD Release no-tts); first configure can be slow.
+- See `native_plugins/speech_runtime/onnx_runtime/README.md`.
 
 ## Packaging
 
@@ -114,7 +128,7 @@ cd C:\dev\FluidVoice_Port_to_Windows
 
 | Deliverable | How |
 |-------------|-----|
-| Portable zip | `build_portable.ps1` → `flutter_app\dist\FluidVoice-Windows-portable-*.zip` |
+| Portable folder + zip | `build_portable.ps1` → `dist\FluidVoice-portable\` and `.zip` |
 | Installer | `build_installer.ps1` + [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`ISCC.exe`) → `FluidVoice-Windows-Setup-*.exe` |
 
 The installer script still produces the portable zip if Inno Setup is missing.

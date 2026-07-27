@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/widgets/fluid_card.dart';
 import '../../app/widgets/fluid_section_header.dart';
-import '../../core/platform/whisper_model_store.dart';
+import '../../core/platform/speech_model_store.dart';
 import '../../core/services/settings_manager.dart';
 import '../../core/storage/json_settings_store.dart';
 
@@ -18,7 +18,7 @@ class ModelsPage extends StatefulWidget {
 
 class _ModelsPageState extends State<ModelsPage> {
   final _settings = SettingsManager(JsonSettingsStore());
-  final _store = WhisperModelStore();
+  final _store = SpeechModelStore();
   bool _loading = true;
   bool _busy = false;
   String? _progressLabel;
@@ -34,7 +34,7 @@ class _ModelsPageState extends State<ModelsPage> {
     await _settings.load();
     setState(() {
       _selected =
-          _settings.selectedModelId ?? WhisperModelStore.defaultModelId;
+          _settings.selectedModelId ?? SpeechModelStore.defaultModelId;
       _loading = false;
     });
   }
@@ -92,7 +92,7 @@ class _ModelsPageState extends State<ModelsPage> {
           Text('Models', style: theme.textTheme.titleLarge),
           const SizedBox(height: FluidSpacing.sm),
           Text(
-            'whisper.cpp models download on first use or when selected.',
+            'Whisper ggml and Parakeet ONNX download on first use or when selected.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: FluidColors.secondaryText,
             ),
@@ -129,20 +129,21 @@ class _ModelsPageState extends State<ModelsPage> {
                           child: Column(
                             children: [
                               for (var i = 0;
-                                  i < WhisperModelStore.availableModelIds.length;
+                                  i <
+                                      SpeechModelStore
+                                          .availableModelIds.length;
                                   i++) ...[
                                 if (i > 0) const Divider(height: 1),
                                 RadioListTile<String>(
                                   value:
-                                      WhisperModelStore.availableModelIds[i],
+                                      SpeechModelStore.availableModelIds[i],
                                   title: Text(
-                                    WhisperModelStore.availableModelIds[i],
+                                    SpeechModelStore.availableModelIds[i],
                                   ),
                                   subtitle: Text(
-                                    WhisperModelStore.availableModelIds[i] ==
-                                            'tiny.en'
-                                        ? 'Fastest, English — default'
-                                        : 'Higher quality, English — larger download',
+                                    SpeechModelStore.subtitleFor(
+                                      SpeechModelStore.availableModelIds[i],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -153,18 +154,12 @@ class _ModelsPageState extends State<ModelsPage> {
                       const SizedBox(height: FluidSpacing.xl),
                       const FluidSectionHeader(
                         'Coming later',
-                        subtitle: 'Phase 3 under speech_runtime',
+                        subtitle: 'Additional backends under speech_runtime',
                       ),
                       const FluidCard(
                         padding: EdgeInsets.zero,
                         child: Column(
                           children: [
-                            ListTile(
-                              title: Text('ONNX / Parakeet-class'),
-                              subtitle: Text('Planned'),
-                              enabled: false,
-                            ),
-                            Divider(height: 1),
                             ListTile(
                               title: Text('Vosk'),
                               subtitle: Text('Planned'),

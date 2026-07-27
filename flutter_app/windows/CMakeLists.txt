@@ -114,6 +114,16 @@ foreach(_fv_speech_dep whisper ggml ggml-base ggml-cpu)
   endif()
 endforeach()
 
+# sherpa-onnx / onnxruntime (Parakeet) runtime DLLs.
+if(DEFINED FV_SHERPA_LIB_DIR AND EXISTS "${FV_SHERPA_LIB_DIR}")
+  install(FILES
+    "${FV_SHERPA_LIB_DIR}/sherpa-onnx-c-api.dll"
+    "${FV_SHERPA_LIB_DIR}/onnxruntime.dll"
+    "${FV_SHERPA_LIB_DIR}/onnxruntime_providers_shared.dll"
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+    COMPONENT Runtime)
+endif()
+
 install(FILES "${FLUTTER_ICU_DATA_FILE}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   COMPONENT Runtime)
 

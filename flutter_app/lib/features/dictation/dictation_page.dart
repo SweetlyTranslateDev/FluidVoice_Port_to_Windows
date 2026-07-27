@@ -144,7 +144,7 @@ class DictationPageState extends State<DictationPage> {
     if (_speech.isNativeAvailable) {
       if (showModelDownload && mounted) {
         setState(() {
-          _status = 'Downloading Whisper model…';
+          _status = 'Downloading speech model…';
           _detail = '$modelId (cached after first run)';
         });
       }
