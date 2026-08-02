@@ -11,6 +11,7 @@ class Win32CredentialsStore implements CredentialsStore {
   final MethodChannel _channel;
 
   static const aiApiKey = 'ai_api_key';
+  static const deeplApiKey = 'deepl_api_key';
 
   @override
   Future<void> writeSecret(String key, String value) async {

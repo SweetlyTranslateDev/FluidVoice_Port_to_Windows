@@ -5,6 +5,7 @@ import '../../app/theme/app_theme.dart';
 import '../../app/widgets/fluid_card.dart';
 import '../../app/widgets/fluid_section_header.dart';
 import '../../app/widgets/hotkey_capture_field.dart';
+import '../../core/ai/deepl_translator.dart';
 import '../../core/models/audio_models.dart';
 import '../../core/models/dictation_mode.dart';
 import '../../core/models/hotkey_models.dart';
@@ -34,6 +35,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _windowChrome = WindowChromeChannel();
   final _apiKeyController = TextEditingController();
   final _baseUrlController = TextEditingController();
+  final _deeplApiKeyController = TextEditingController();
 
   List<AudioDeviceInfo> _mics = [];
   String? _error;
@@ -41,6 +43,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _saving = false;
   bool _launchAtLogin = false;
   bool _hasStoredApiKey = false;
+  bool _hasStoredDeeplApiKey = false;
   HotkeyShortcut _hotkey = kDefaultHotkeyShortcut;
 
   @override
@@ -64,6 +67,13 @@ class _SettingsPageState extends State<SettingsPage> {
       _hasStoredApiKey = existing != null && existing.isNotEmpty;
     } catch (_) {
       _hasStoredApiKey = false;
+    }
+    try {
+      final deepl =
+          await _credentials.readSecret(Win32CredentialsStore.deeplApiKey);
+      _hasStoredDeeplApiKey = deepl != null && deepl.isNotEmpty;
+    } catch (_) {
+      _hasStoredDeeplApiKey = false;
     }
 
     if (!_capture.isNativeAvailable) {
@@ -125,6 +135,18 @@ class _SettingsPageState extends State<SettingsPage> {
       } catch (_) {}
     }
 
+    final newDeeplKey = _deeplApiKeyController.text.trim();
+    if (newDeeplKey.isNotEmpty) {
+      try {
+        await _credentials.writeSecret(
+          Win32CredentialsStore.deeplApiKey,
+          newDeeplKey,
+        );
+        _hasStoredDeeplApiKey = true;
+        _deeplApiKeyController.clear();
+      } catch (_) {}
+    }
+
     if (!mounted) return;
     setState(() => _saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -143,6 +165,17 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  Future<void> _clearDeeplApiKey() async {
+    try {
+      await _credentials.deleteSecret(Win32CredentialsStore.deeplApiKey);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _hasStoredDeeplApiKey = false;
+      _deeplApiKeyController.clear();
+    });
+  }
+
   void _openModels() {
     ShellNavigation.maybeOf(context)?.goTo(ShellPage.models);
   }
@@ -151,6 +184,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _apiKeyController.dispose();
     _baseUrlController.dispose();
+    _deeplApiKeyController.dispose();
     _capture.dispose();
     super.dispose();
   }
@@ -365,6 +399,86 @@ class _SettingsPageState extends State<SettingsPage> {
                         value: _settings.pauseMediaWhileDictating,
                         onChanged: (v) => setState(
                           () => _settings.pauseMediaWhileDictating = v,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: FluidSpacing.xl),
+                const FluidSectionHeader(
+                  'Translation',
+                  subtitle:
+                      'Optional DeepL — inject translated text instead of raw STT',
+                ),
+                FluidCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Translate before inject'),
+                        subtitle: const Text(
+                          'Speech is transcribed locally, then sent to DeepL '
+                          'using your API key. Only the translation is injected.',
+                        ),
+                        value: _settings.translationEnabled,
+                        onChanged: (v) =>
+                            setState(() => _settings.translationEnabled = v),
+                      ),
+                      const SizedBox(height: FluidSpacing.md),
+                      InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Target language',
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            value: DeepLTargetLang.isSupported(
+                              _settings.deeplTargetLang,
+                            )
+                                ? _settings.deeplTargetLang
+                                : 'DE',
+                            items: [
+                              for (final entry
+                                  in DeepLTranslator.targetLanguages.entries)
+                                DropdownMenuItem(
+                                  value: entry.key,
+                                  child: Text(
+                                    '${entry.value} (${entry.key})',
+                                  ),
+                                ),
+                            ],
+                            onChanged: _settings.translationEnabled
+                                ? (code) {
+                                    if (code == null) return;
+                                    setState(
+                                      () => _settings.deeplTargetLang = code,
+                                    );
+                                  }
+                                : null,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: FluidSpacing.md),
+                      TextField(
+                        controller: _deeplApiKeyController,
+                        obscureText: true,
+                        enabled: _settings.translationEnabled,
+                        decoration: InputDecoration(
+                          labelText: 'DeepL API key',
+                          hintText: _hasStoredDeeplApiKey
+                              ? 'Saved — enter to replace'
+                              : 'Free key from deepl.com/pro-api',
+                          helperText:
+                              'Stored in Windows Credential Manager. '
+                              'Free keys end with :fx and use api-free.deepl.com.',
+                          suffixIcon: _hasStoredDeeplApiKey
+                              ? IconButton(
+                                  tooltip: 'Clear stored key',
+                                  onPressed: _clearDeeplApiKey,
+                                  icon: const Icon(Icons.clear),
+                                )
+                              : null,
                         ),
                       ),
                     ],

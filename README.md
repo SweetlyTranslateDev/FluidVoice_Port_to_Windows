@@ -27,6 +27,7 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 - Settings & transcript history (AppData JSON)
 - Launch at login, always-on-top, optional acrylic
 - Optional cloud AI output modes (raw / enhance / rewrite / write) via API key in Windows Credential Manager
+- **Optional DeepL translation** — bring your own [DeepL API](https://www.deepl.com/pro-api) key; transcribe locally, translate, inject the translation
 - Optional local loopback API on `127.0.0.1:47733`
 - Portable zip and Inno Setup installer
 
@@ -137,6 +138,38 @@ After changing models, return to **Home** so the app reloads the selection. Stat
 
 ---
 
+## Translation (DeepL)
+
+Turn dictation into a **speech → translate → inject** workflow. Speech-to-text still runs **on-device**; only the transcribed text is sent to DeepL when translation is enabled.
+
+### How it works
+
+1. Hold the hotkey and speak (local STT, unchanged).
+2. Optional **AI output mode** runs first if not set to `raw` (enhance / rewrite / write).
+3. If **Translate before inject** is on, the text is sent to the DeepL API using **your** API key.
+4. The **translated** text is injected into the focused app (not the raw STT output).
+
+There is no FluidVoice backend for translation — the app calls DeepL directly from the client with a bring-your-own-key setup.
+
+### Setup
+
+1. Create a free or paid API key at [deepl.com/pro-api](https://www.deepl.com/pro-api).
+2. In the app: **Settings → Translation**.
+3. Enable **Translate before inject**.
+4. Choose a **target language** (e.g. `DE`, `FR`, `EN-US`).
+5. Paste your **DeepL API key** and click **Save**.
+
+Keys are stored in **Windows Credential Manager** (same as the optional AI API key), not in plain settings JSON.
+
+| Key type | Endpoint used automatically |
+|----------|-----------------------------|
+| Free (key ends with `:fx`) | `api-free.deepl.com` |
+| Pro | `api.deepl.com` |
+
+If translation fails (missing key, network, quota), the app falls back to the pre-translation text and shows the error in the status detail on Home.
+
+---
+
 ## Repository layout
 
 ```text
@@ -171,7 +204,16 @@ More detail:
 
 ## Privacy
 
-Dictation STT runs **on-device**. Audio and transcripts stay local unless you enable a cloud AI output mode and provide an API key.
+Dictation STT runs **on-device**. Audio stays local.
+
+Optional features send **text** (not raw audio) to third-party APIs only when you enable them and provide your own key:
+
+| Feature | What leaves your PC |
+|---------|---------------------|
+| AI output modes (enhance / rewrite / write) | Transcribed text → your configured OpenAI-compatible endpoint |
+| DeepL translation | Transcribed text → DeepL API (`api-free.deepl.com` or `api.deepl.com`) |
+
+With translation and AI disabled, transcripts stay on the machine (AppData history JSON).
 
 ---
 

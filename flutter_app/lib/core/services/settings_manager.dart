@@ -1,8 +1,18 @@
+import '../ai/deepl_translator.dart';
 import '../models/dictation_mode.dart';
 import '../models/hotkey_models.dart';
 import '../platform/hotkey_vk.dart';
 import '../platform/win32_hotkey_source.dart';
 import '../storage/settings_store.dart';
+
+/// DeepL target language helpers for settings persistence.
+class DeepLTargetLang {
+  static bool isSupported(String code) =>
+      DeepLTranslator.targetLanguages.containsKey(code);
+
+  static String label(String code) =>
+      DeepLTranslator.targetLanguages[code] ?? code;
+}
 
 /// How long transcript history is retained. `0` means keep forever.
 class HistoryRetention {
@@ -40,6 +50,12 @@ class SettingsManager {
   /// When true, minimize hides to the system tray; when false, normal taskbar minimize.
   bool minimizeToTray = false;
 
+  /// Send transcribed text through DeepL before injection (user's API key).
+  bool translationEnabled = false;
+
+  /// DeepL `target_lang` code (e.g. `DE`, `EN-US`).
+  String deeplTargetLang = 'DE';
+
   Future<void> load() async {
     final data = await _store.readAll();
     hotkeyMode = HotkeyActivationMode.values.firstWhere(
@@ -63,6 +79,11 @@ class SettingsManager {
     acrylicEnabled = data['acrylicEnabled'] != 'false';
     floatingPillEnabled = data['floatingPillEnabled'] == 'true';
     minimizeToTray = data['minimizeToTray'] == 'true';
+    translationEnabled = data['translationEnabled'] == 'true';
+    deeplTargetLang = data['deeplTargetLang'] ?? 'DE';
+    if (!DeepLTargetLang.isSupported(deeplTargetLang)) {
+      deeplTargetLang = 'DE';
+    }
     historyRetentionDays = int.tryParse(data['historyRetentionDays'] ?? '') ??
         30;
     if (!HistoryRetention.options.contains(historyRetentionDays) &&
@@ -115,6 +136,8 @@ class SettingsManager {
       'acrylicEnabled': acrylicEnabled.toString(),
       'floatingPillEnabled': floatingPillEnabled.toString(),
       'minimizeToTray': minimizeToTray.toString(),
+      'translationEnabled': translationEnabled.toString(),
+      'deeplTargetLang': deeplTargetLang,
       'hotkeyKeyCode': shortcut?.keyCode.toString() ?? '',
       'hotkeyModifiers':
           encodeHotkeyModifiers(shortcut?.modifiers ?? {}).toString(),

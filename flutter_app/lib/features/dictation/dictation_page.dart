@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../app/shell/shell_navigation.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/widgets/fluid_card.dart';
+import '../../core/ai/deepl_translator.dart';
 import '../../core/ai/openai_compatible_provider.dart';
 import '../../core/models/audio_models.dart';
 import '../../core/models/dictation_mode.dart';
@@ -437,6 +438,22 @@ class DictationPageState extends State<DictationPage> {
         }
       }
 
+      if (text.isNotEmpty && _settings.translationEnabled) {
+        try {
+          if (mounted) {
+            setState(() {
+              _status =
+                  'Translating to ${DeepLTargetLang.label(_settings.deeplTargetLang)}…';
+            });
+          }
+          text = await _translateText(text);
+          injectDetail =
+              'Translated to ${DeepLTargetLang.label(_settings.deeplTargetLang)}';
+        } catch (e) {
+          injectDetail = 'Translation failed, using original text: $e';
+        }
+      }
+
       if (text.isNotEmpty && _injector.isNativeAvailable) {
         try {
           await _injector.insertText(text);
@@ -494,6 +511,19 @@ class DictationPageState extends State<DictationPage> {
         await _tray.setStatus(AppTrayStatus.idle);
       } catch (_) {}
     }
+  }
+
+  Future<String> _translateText(String transcript) async {
+    final key =
+        await _credentials.readSecret(Win32CredentialsStore.deeplApiKey);
+    if (key == null || key.isEmpty) {
+      throw StateError('Configure a DeepL API key in Settings');
+    }
+    final translator = DeepLTranslator(apiKey: key);
+    return translator.translate(
+      text: transcript,
+      targetLang: _settings.deeplTargetLang,
+    );
   }
 
   Future<String> _runAiMode(String transcript) async {

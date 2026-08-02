@@ -2,6 +2,7 @@
 library;
 
 export 'interfaces/ai_provider.dart';
+export 'ai/deepl_translator.dart';
 export 'ai/openai_compatible_provider.dart';
 export 'models/dictation_mode.dart';
 export 'services/local_api_server.dart';
