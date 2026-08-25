@@ -46,7 +46,7 @@ This repository is a **Flutter + native C++ Windows port**. The original FluidVo
 3. Workspace path **without `;`**. If the real path has a semicolon, use a junction:
 
 ```powershell
-cmd /c mklink /J C:\dev\FluidVoice_Port_to_Windows "C:\path\to\real\repo"
+cmd /c mklink /J C:\dev\ "C:\path\to\real\repo"
 ```
 
 4. Fonts under `flutter_app/assets/fonts/` (see [Fonts](#fonts) below) — required before `flutter build` / `flutter run`.
@@ -57,7 +57,7 @@ cmd /c mklink /J C:\dev\FluidVoice_Port_to_Windows "C:\path\to\real\repo"
 Prefer **Release** for usable STT speed:
 
 ```powershell
-cd C:\dev\FluidVoice_Port_to_Windows\flutter_app
+cd "C:\path\to\real\repo\...\flutter_app"
 flutter pub get
 flutter run -d windows --release
 ```
@@ -71,7 +71,7 @@ On **Home**, the status line shows the active model, e.g. `model:parakeet-tdt-0.
 From the repo root (junction path recommended):
 
 ```powershell
-cd C:\dev\FluidVoice_Port_to_Windows
+cd "C:\path\to\real\repo"
 .\scripts\windows\build_portable.ps1
 .\scripts\windows\build_installer.ps1
 ```
@@ -198,7 +198,7 @@ More detail:
 - Flutter stable + VS 2022 C++ desktop workload (to build)
 - Microphone
 - ~100MB+ disk for Whisper tiny, or ~400MB+ for Parakeet
-- Network on first model download
+- Network on first run for model to download
 
 ---
 
